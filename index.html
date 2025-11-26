@@ -73,10 +73,19 @@
             Map as MapIcon // 重命名 Map 圖標避免衝突
         } from 'lucide-react';
 
-        // --- 全新設計：24小時制時間選擇器 ---
+        // --- 全新設計：24小時制時間選擇器 (修復版) ---
         const CustomTimePicker = ({ value, onChange }) => {
             const [isOpen, setIsOpen] = useState(false);
+            // 新增：內部狀態，用於即時顯示選擇的結果
+            const [internalTime, setInternalTime] = useState(value || '12:00');
             const containerRef = useRef(null);
+
+            // 當外部 value 改變時 (例如在新增模式)，同步更新內部狀態
+            useEffect(() => {
+                if (value) {
+                    setInternalTime(value);
+                }
+            }, [value]);
 
             useEffect(() => {
                 const handleClickOutside = (event) => {
@@ -88,14 +97,19 @@
                 return () => document.removeEventListener('mousedown', handleClickOutside);
             }, []);
 
-            const [hour, minute] = value ? value.split(':') : ['12', '00'];
+            // 使用內部狀態來分割時與分
+            const [hour, minute] = internalTime.split(':');
 
             const handleHourChange = (h) => {
-                onChange(`${h}:${minute}`);
+                const newTime = `${h}:${minute}`;
+                setInternalTime(newTime); // 立即更新顯示
+                onChange(newTime);        // 通知父層
             };
 
             const handleMinuteChange = (m) => {
-                onChange(`${hour}:${m}`);
+                const newTime = `${hour}:${m}`;
+                setInternalTime(newTime); // 立即更新顯示
+                onChange(newTime);        // 通知父層
                 setIsOpen(false);
             };
 
@@ -168,7 +182,7 @@
                         `}
                     >
                         <Clock size={18} className="text-[#CFB997]" />
-                        <span>{value}</span>
+                        <span>{internalTime}</span>
                     </button>
 
                     {isOpen && (
@@ -702,8 +716,8 @@
 
                 {/* --- Main Content --- */}
                 <main className="flex-1 overflow-y-auto relative bg-dots-pattern">
-                    <!-- 移除 bg-dots-pattern 類別，只保留背景色 -->
-                    <!-- 這裡的 div 控制背景點點透明度，降低為 0.02 -->
+                    {/* 移除 bg-dots-pattern 類別，只保留背景色 */}
+                    {/* 這裡的 div 控制背景點點透明度，降低為 0.02 */}
                     <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#5D4037 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
 
                     <div 
