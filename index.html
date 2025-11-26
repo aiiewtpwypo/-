@@ -54,7 +54,7 @@
             scrollbar-width: none;
         }
 
-        /* 背景點點裝飾 - 定義樣式但不直接套用到主容器，改由內部 div 控制透明度 */
+        /* 背景點點裝飾 */
         .bg-dots-pattern {
             background-image: radial-gradient(#5D4037 1px, transparent 1px);
             background-size: 24px 24px;
@@ -111,7 +111,8 @@
         } from 'lucide-react';
 
         // --- 全新設計：24小時制時間選擇器 ---
-        const CustomTimePicker = ({ value, onChange }) => {
+        // 增加 mode, showIcon, onComplete 屬性以支援不同的使用場景
+        const CustomTimePicker = ({ value, onChange, mode = 'default', showIcon = true, onComplete }) => {
             const [isOpen, setIsOpen] = useState(false);
             const containerRef = useRef(null);
             // 內部狀態，用於即時顯示選擇的結果
@@ -138,14 +139,25 @@
 
             const handleHourChange = (h) => {
                 const newTime = `${h}:${minute}`;
-                setInternalTime(newTime); // 立即更新顯示
-                onChange(newTime);        // 通知父層
+                setInternalTime(newTime); // 立即更新內部顯示
+                
+                // 如果有提供 onComplete (如列表頁)，則在選完小時的時候只更新內部狀態，不觸發外部更新
+                // 這樣可以避免選小時選到一半，行程就因為排序而跳走
+                if (!onComplete) {
+                    onChange && onChange(newTime);
+                }
             };
 
             const handleMinuteChange = (m) => {
                 const newTime = `${hour}:${m}`;
-                setInternalTime(newTime); // 立即更新顯示
-                onChange(newTime);        // 通知父層
+                setInternalTime(newTime); 
+                
+                // 選完分鐘，視為操作完成
+                if (onComplete) {
+                    onComplete(newTime);
+                } else {
+                    onChange && onChange(newTime);
+                }
                 setIsOpen(false);
             };
 
@@ -206,18 +218,24 @@
                 );
             };
 
+            // 根據模式決定按鈕樣式
+            let buttonClass = "";
+            if (mode === 'minimal') {
+                // 時間軸上的精簡樣式
+                buttonClass = `mt-2 text-sm font-bold text-[#8D6E63] font-mono bg-[#FDFBF7] px-2 py-0.5 rounded-md border border-[#EFEBE0] shadow-sm hover:bg-[#EFEBE0] hover:border-[#D7CCC8] transition-all active:scale-95 flex items-center gap-1`;
+            } else {
+                // 表單中的預設樣式
+                buttonClass = `flex items-center gap-2 w-full border rounded-xl px-4 py-3 bg-[#FAFAFA] text-[#5D4037] font-mono text-lg outline-none transition-all duration-300 hover:shadow-sm ${isOpen ? 'ring-2 ring-[#CFB997] border-[#CFB997]' : 'border-[#E0E0E0] hover:border-[#D7CCC8]'}`;
+            }
+
             return (
-                <div className="relative" ref={containerRef}>
+                <div className="relative inline-block" ref={containerRef}>
                     <button
                         type="button"
                         onClick={() => setIsOpen(!isOpen)}
-                        className={`
-                        flex items-center gap-2 w-full border rounded-xl px-4 py-3 bg-[#FAFAFA] text-[#5D4037] font-mono text-lg outline-none transition-all duration-300
-                        hover:shadow-sm
-                        ${isOpen ? 'ring-2 ring-[#CFB997] border-[#CFB997]' : 'border-[#E0E0E0] hover:border-[#D7CCC8]'}
-                        `}
+                        className={buttonClass}
                     >
-                        <Clock size={18} className="text-[#CFB997]" />
+                        {showIcon && <Clock size={mode === 'minimal' ? 14 : 18} className="text-[#CFB997]" />}
                         <span>{internalTime}</span>
                     </button>
 
@@ -231,7 +249,12 @@
             );
         };
 
-        // --- 地圖路線動畫 Modal (Leaflet Version - 簡約風格 & 優化載入) ---
+        // 輔助元件：簡單的 Subway Icon
+        function SubwayIcon({size, className}) {
+            return <div className={`flex items-center justify-center border-2 border-current rounded ${className}`} style={{width: size, height: size}}><span className="text-[10px] font-bold">M</span></div>
+        }
+
+        // --- 地圖路線動畫 Modal (Leaflet Version - 簡約風格 & 優化載入 & 修正版面遮擋) ---
         const RouteAnimationModal = ({ day, onClose, transportOptions }) => {
             const mapRef = useRef(null);
             const mapInstanceRef = useRef(null);
@@ -247,6 +270,22 @@
             const getTransportLabel = (type) => {
                 const opt = transportOptions.find(t => t.id === type);
                 return opt ? opt.label : '移動';
+            };
+
+            // 輔助：獲取交通方式 Emoji (新增功能)
+            const getTransportEmoji = (type) => {
+                switch(type) {
+                    case 'walk': return '🚶';
+                    case 'bike': return '🚲';
+                    case 'train': return '🚆';
+                    case 'mrt': return '🚇';
+                    case 'bus': return '🚌';
+                    case 'flight': return '✈️';
+                    case 'ship': return '🚢';
+                    case 'taxi': return '🚕';
+                    case 'car': return '🚗';
+                    default: return '🚗';
+                }
             };
 
             useEffect(() => {
@@ -340,14 +379,20 @@
                     lineCap: 'round'
                 }).addTo(map);
                 
-                // 自動調整視角以包含所有點
-                map.fitBounds(polyline.getBounds(), { padding: [80, 80] });
+                // 自動調整視角 (增加底部 Padding 防止被遮擋)
+                map.fitBounds(polyline.getBounds(), { 
+                    paddingTopLeft: [50, 50],
+                    paddingBottomRight: [50, 200] // 關鍵修改：增加底部 padding
+                });
                 polylineRef.current = polyline;
 
                 // 4. 初始化移動標記 (使用 emoji 或 svg)
+                const firstTransportType = activities[0].transport?.type || 'car';
+                const emoji = getTransportEmoji(firstTransportType);
+
                 const carIcon = L.divIcon({
                     className: '',
-                    html: '<div style="font-size: 32px; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.2)); transform: translateY(-50%);">🚗</div>',
+                    html: `<div style="font-size: 32px; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.2)); transform: translateY(-50%);">${emoji}</div>`,
                     iconSize: [40, 40],
                     iconAnchor: [20, 20]
                 });
@@ -388,6 +433,8 @@
                     return [lat, lng];
                 };
 
+                let lastSegmentIndex = -1;
+
                 const animate = (timestamp) => {
                     if (!startTime) startTime = timestamp;
                     const progress = (timestamp - startTime) / totalDuration;
@@ -407,19 +454,32 @@
                             accumulatedDist += distances[i];
                         }
 
-                        // 更新當前路段資訊
-                        const currentActivity = activities[segmentIndex];
-                        const nextActivity = activities[segmentIndex + 1];
-                        
-                        // 檢查是否有設定交通資訊 (存在 currentActivity.transport 中)
-                        const transportInfo = currentActivity.transport || { type: 'walk', duration: '??' };
+                        // 更新當前路段資訊與圖示 (只在切換路段時更新)
+                        if (segmentIndex !== lastSegmentIndex) {
+                            lastSegmentIndex = segmentIndex;
+                            const currentActivity = activities[segmentIndex];
+                            const nextActivity = activities[segmentIndex + 1];
+                            
+                            const transportInfo = currentActivity.transport || { type: 'walk', duration: '??' };
+                            const emoji = getTransportEmoji(transportInfo.type);
 
-                        setCurrentSegment({
-                            from: currentActivity.location,
-                            to: nextActivity.location,
-                            transport: getTransportLabel(transportInfo.type),
-                            duration: transportInfo.duration || '預估時間'
-                        });
+                            // 更新 Marker 圖示
+                            const newIcon = L.divIcon({
+                                className: '',
+                                html: `<div style="font-size: 32px; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.2)); transform: translateY(-50%); transition: all 0.3s;">${emoji}</div>`,
+                                iconSize: [40, 40],
+                                iconAnchor: [20, 20]
+                            });
+                            markerRef.current.setIcon(newIcon);
+
+                            setCurrentSegment({
+                                from: currentActivity.location,
+                                to: nextActivity.location,
+                                transport: getTransportLabel(transportInfo.type),
+                                duration: transportInfo.duration || '預估時間',
+                                emoji: emoji // 傳給資訊面板顯示
+                            });
+                        }
 
                         // 計算該段的完成比例
                         const segmentProgress = (currentDist - accumulatedDist) / distances[segmentIndex];
@@ -439,7 +499,8 @@
                             from: activities[activities.length-1].location,
                             to: "旅程結束",
                             transport: "抵達",
-                            duration: "-"
+                            duration: "-",
+                            emoji: "🏁"
                         });
                     }
                 };
@@ -464,8 +525,8 @@
                             </button>
                         </div>
 
-                        {/* Map Container */}
-                        <div className="flex-1 relative bg-[#fcfbf9]">
+                        {/* Map Container - flex-1 佔據剩餘空間 */}
+                        <div className="flex-1 relative bg-[#fcfbf9] min-h-0">
                             {activities.length > 0 ? (
                                 <div ref={mapRef} className="w-full h-full z-0"></div>
                             ) : (
@@ -474,11 +535,11 @@
                                 </div>
                             )}
                             
-                            {/* 動態資訊面板 (Bottom Overlay) */}
+                            {/* 動態資訊面板 (懸浮在地圖上方) */}
                             {currentSegment && (
-                                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[400] w-[90%] max-w-md anim-info-panel bg-white/90 rounded-2xl shadow-lg border border-[#EFEBE0] p-4 flex items-center gap-4 transition-all duration-300">
+                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[400] w-[90%] max-w-md anim-info-panel bg-white/95 rounded-2xl shadow-lg border border-[#EFEBE0] p-4 flex items-center gap-4 transition-all duration-300">
                                     <div className="w-12 h-12 bg-[#F5F0E6] rounded-full flex items-center justify-center text-2xl shadow-inner">
-                                        🚗
+                                        {currentSegment.emoji}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-1">
@@ -500,8 +561,8 @@
                             )}
                         </div>
 
-                        {/* Footer Controls */}
-                        <div className="p-4 bg-white/80 backdrop-blur-md border-t border-[#EFEBE0] flex-shrink-0 flex justify-center absolute bottom-0 w-full z-[500]">
+                        {/* Footer Controls - 固定在底部，不覆蓋地圖 */}
+                        <div className="p-4 bg-white border-t border-[#EFEBE0] flex-shrink-0 flex justify-center z-[500]">
                             <button 
                                 onClick={startAnimation}
                                 disabled={isPlaying || activities.length < 2}
@@ -554,7 +615,7 @@
                 { id: 'ship', label: '船運', icon: <Anchor size={18} />, needCost: true },
             ];
 
-            // --- 初始數據 (加入真實經緯度以便地圖演示) ---
+            // --- 初始數據 ---
             const initialTripData = {
                 title: "台北輕旅行",
                 destination: "台灣, 台北",
@@ -571,7 +632,7 @@
                         time: "10:00", 
                         type: "transport", 
                         location: "台北火車站", 
-                        coords: [25.0478, 121.5170], // Lat, Lng
+                        coords: [25.0478, 121.5170], 
                         note: "抵達台北，前往飯店寄放行李", 
                         cost: 0, 
                         transport: { type: 'mrt', duration: '15分', cost: 25 }
@@ -586,15 +647,6 @@
                         cost: 150, 
                         transport: { type: 'walk', duration: '10分', cost: 0 } 
                     },
-                    {
-                        id: 103,
-                        time: "14:30",
-                        type: "culture",
-                        location: "華山1914文創園區",
-                        coords: [25.0441, 121.5294],
-                        note: "看展覽、逛文創商店",
-                        cost: 300
-                    }
                     ]
                 },
                 {
@@ -603,7 +655,6 @@
                     label: "歷史與夕陽",
                     activities: [
                     { id: 201, time: "09:30", type: "ticket", location: "國立故宮博物院", coords: [25.1024, 121.5486], note: "參觀翠玉白菜，預計停留 3 小時", cost: 350 },
-                    { id: 202, time: "16:00", type: "sea", location: "淡水老街", coords: [25.1695, 121.4437], note: "搭捷運至淡水，看夕陽、吃阿給", cost: 0 },
                     ]
                 },
                 {
@@ -628,7 +679,7 @@
             const [showTransportModal, setShowTransportModal] = useState(false);
             const [showSettingsModal, setShowSettingsModal] = useState(false);
             const [showMapModal, setShowMapModal] = useState(false); 
-            const [showRouteAnimModal, setShowRouteAnimModal] = useState(false); // 新增：路線動畫 Modal 狀態
+            const [showRouteAnimModal, setShowRouteAnimModal] = useState(false); 
             
             // Forms
             const [newActivityForm, setNewActivityForm] = useState({ 
@@ -752,9 +803,15 @@
             const saveActivityEdit = (dayId, actId, newData) => {
                 const updatedDays = trip.days.map(day => {
                 if (day.id === dayId) {
+                    // 更新活動資料
+                    const updatedActivities = day.activities.map(act => act.id === actId ? { ...act, ...newData } : act);
+                    
+                    // 依照時間排序
+                    updatedActivities.sort((a, b) => a.time.localeCompare(b.time));
+
                     return {
-                    ...day,
-                    activities: day.activities.map(act => act.id === actId ? { ...act, ...newData } : act)
+                        ...day,
+                        activities: updatedActivities
                     };
                 }
                 return day;
@@ -866,20 +923,19 @@
                 setShowSettingsModal(false);
             };
 
-            // 新增活動時，因為沒有 API Key 可以反查座標，我們模擬一個座標
-            // 邏輯：取該天最後一個點的座標，稍微偏移一點點，讓路線能繼續畫下去
             const handleAddActivity = () => {
-                if (!newActivityForm.location) return;
+                // 檢查：如果沒有輸入地點，跳出提示
+                if (!newActivityForm.location) {
+                    alert("請輸入地點名稱！");
+                    return;
+                }
                 
-                // 找最後一個已知座標
                 const currentActivities = trip.days.find(d => d.id === activeDayId)?.activities || [];
                 const lastActivity = currentActivities.length > 0 ? currentActivities[currentActivities.length - 1] : null;
                 
-                // 預設座標 (台北車站)
                 let newCoords = [25.0478, 121.5170]; 
                 
                 if (lastActivity && lastActivity.coords) {
-                    // 在最後一個點附近隨機偏移 0.01~0.03 度 (約 1~3 公里)
                     const latOffset = (Math.random() - 0.5) * 0.05;
                     const lngOffset = (Math.random() - 0.5) * 0.05;
                     newCoords = [lastActivity.coords[0] + latOffset, lastActivity.coords[1] + lngOffset];
@@ -888,7 +944,7 @@
                 const newAct = {
                     id: Date.now(),
                     ...newActivityForm,
-                    coords: newCoords, // 模擬座標
+                    coords: newCoords, 
                     completed: false
                 };
 
@@ -1187,9 +1243,14 @@
                                                         `}>
                                                             {iconData.icon}
                                                         </div>
-                                                        <span className="mt-2 text-sm font-bold text-[#8D6E63] font-mono bg-[#FDFBF7] px-2 py-0.5 rounded-md border border-[#EFEBE0] shadow-sm">
-                                                            {activity.time}
-                                                        </span>
+                                                        {/* 改用 CustomTimePicker 實現即時點擊修改 */}
+                                                        <CustomTimePicker 
+                                                            value={activity.time} 
+                                                            onChange={null}
+                                                            onComplete={(newTime) => saveActivityEdit(activeDayId, activity.id, { time: newTime })}
+                                                            mode="minimal"
+                                                            showIcon={false}
+                                                        />
                                                     </div>
 
                                                     <div className="flex-1 bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(93,64,55,0.05)] border border-[#EFEBE0] group-hover:border-[#CFB997]/50 group-hover:shadow-[0_8px_30px_rgba(93,64,55,0.08)] transition-all duration-300 relative overflow-hidden mb-8 transform hover:-translate-y-1 hover:shadow-lg">
@@ -1406,7 +1467,7 @@
                         </button>
                         </div>
                         
-                        <div className="p-8 overflow-y-auto custom-scrollbar">
+                        <div className="p-8 overflow-y-auto custom-scrollbar flex-1">
                             <div className="space-y-6">
                                 <div>
                                     <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">時間</label>
