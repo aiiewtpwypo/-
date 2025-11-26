@@ -11,11 +11,11 @@
     <!-- 引入 Babel (用於解析 JSX) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- 引入 Leaflet CSS (地圖樣式) -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- 引入 Leaflet CSS (地圖樣式) - 改用 cdnjs 加速載入 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     
-    <!-- 引入 Leaflet JS (地圖核心) -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- 引入 Leaflet JS (地圖核心) - 改用 cdnjs 加速載入 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 
     <!-- 定義模組路徑 (Import Map) -->
     <script type="importmap">
@@ -54,29 +54,41 @@
             scrollbar-width: none;
         }
 
-        /* 背景點點裝飾 */
+        /* 背景點點裝飾 - 定義樣式但不直接套用到主容器，改由內部 div 控制透明度 */
         .bg-dots-pattern {
             background-image: radial-gradient(#5D4037 1px, transparent 1px);
             background-size: 24px 24px;
         }
 
-        /* Leaflet 地圖相關樣式覆蓋 */
+        /* Leaflet 地圖相關樣式覆蓋 - 簡約風格 */
         .leaflet-popup-content-wrapper {
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(93,64,55,0.15);
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 0;
         }
         .leaflet-popup-content {
             font-family: sans-serif;
             color: #5D4037;
-            font-weight: bold;
+            margin: 10px 14px;
+            line-height: 1.4;
+        }
+        .leaflet-container {
+            background: #fcfbf9; /* 與網頁背景融合 */
         }
         
         /* 自訂地圖標記動畫 */
         .custom-marker-icon {
-            transition: all 0.3s ease;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .custom-marker-icon:hover {
             transform: scale(1.2);
+            z-index: 1000 !important;
+        }
+        
+        /* 動畫資訊面板 */
+        .anim-info-panel {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
     </style>
 </head>
@@ -94,7 +106,7 @@
             Calendar, Coffee, X, Share2, ExternalLink, ShoppingBag, Music, 
             Sun, Moon, Star, Flag, Plane, Ticket, Gift, Heart, Smile, 
             Umbrella, Anchor, Bike, Zap, BookOpen, Footprints, Car, Bus, 
-            Timer, Banknote, Settings, Clock, Navigation, PlayCircle,
+            Timer, Banknote, Settings, Clock, Navigation, PlayCircle, ArrowRight,
             Map as MapIcon // 重命名 Map 圖標避免衝突
         } from 'lucide-react';
 
@@ -219,31 +231,51 @@
             );
         };
 
-        // --- 地圖路線動畫 Modal (Leaflet Version) ---
-        const RouteAnimationModal = ({ day, onClose }) => {
+        // --- 地圖路線動畫 Modal (Leaflet Version - 簡約風格 & 優化載入) ---
+        const RouteAnimationModal = ({ day, onClose, transportOptions }) => {
             const mapRef = useRef(null);
             const mapInstanceRef = useRef(null);
             const markerRef = useRef(null);
             const polylineRef = useRef(null);
             const [isPlaying, setIsPlaying] = useState(false);
+            const [currentSegment, setCurrentSegment] = useState(null); // 儲存當前路段資訊
 
-            // 取得所有有效且有座標的行程 (若無座標，這邊會過濾掉或需要模擬)
+            // 取得所有有效且有座標的行程
             const activities = day.activities.filter(a => a.location && a.coords);
+
+            // 輔助：獲取交通方式名稱
+            const getTransportLabel = (type) => {
+                const opt = transportOptions.find(t => t.id === type);
+                return opt ? opt.label : '移動';
+            };
 
             useEffect(() => {
                 if (!mapRef.current || activities.length === 0) return;
 
-                // 1. 初始化地圖
+                // 1. 初始化地圖 (使用 CartoDB Positron 簡約底圖)
                 if (!mapInstanceRef.current) {
-                    const map = L.map(mapRef.current).setView(activities[0].coords, 13);
+                    const map = L.map(mapRef.current, {
+                        zoomControl: false, // 隱藏預設縮放按鈕，保持畫面乾淨
+                        attributionControl: false // 自定義 attribution 位置
+                    }).setView(activities[0].coords, 13);
                     
-                    // 使用 OpenStreetMap 圖層 (免費，無需 API Key)
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                        maxZoom: 19,
+                    L.control.zoom({
+                        position: 'bottomright'
+                    }).addTo(map);
+
+                    // CartoDB Positron (使用 light_all 含標籤)
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                        subdomains: 'abcd',
+                        maxZoom: 19
                     }).addTo(map);
 
                     mapInstanceRef.current = map;
+                    
+                    // 重要優化：強制重繪地圖以避免顯示不全
+                    setTimeout(() => {
+                        map.invalidateSize();
+                    }, 300);
                 }
 
                 const map = mapInstanceRef.current;
@@ -258,40 +290,66 @@
                 // 3. 繪製路徑與標記
                 const latlngs = activities.map(a => a.coords);
                 
-                // 添加起點與終點標記
+                // 添加起點與終點標記 (更簡約的樣式)
                 activities.forEach((act, idx) => {
-                    const iconHtml = `<div style="background-color: #CFB997; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">${idx + 1}</div>`;
+                    const isStart = idx === 0;
+                    const isEnd = idx === activities.length - 1;
+                    
+                    // 顏色邏輯
+                    let bgColor = '#CFB997'; // 預設奶茶色
+                    if (isStart) bgColor = '#5D4037'; // 起點深咖
+                    if (isEnd) bgColor = '#8D6E63'; // 終點中咖
+
+                    const iconHtml = `
+                        <div style="
+                            background-color: ${bgColor}; 
+                            color: white; 
+                            width: 28px; height: 28px; 
+                            border-radius: 50%; 
+                            display: flex; align-items: center; justify-content: center; 
+                            font-weight: bold; font-size: 12px; 
+                            border: 3px solid #fff; 
+                            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+                        ">
+                            ${idx + 1}
+                        </div>`;
                     
                     const icon = L.divIcon({
                         className: 'custom-marker-icon',
                         html: iconHtml,
-                        iconSize: [24, 24],
-                        iconAnchor: [12, 12]
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14]
                     });
 
                     L.marker(act.coords, { icon })
-                        .bindPopup(`<b>${act.time}</b><br>${act.location}`)
+                        .bindPopup(`
+                            <div class="text-sm">
+                                <span class="text-xs text-gray-400 font-mono">${act.time}</span><br/>
+                                <strong class="text-base text-[#5D4037]">${act.location}</strong>
+                            </div>
+                        `, { offset: [0, -10] })
                         .addTo(map);
                 });
 
-                // 繪製連線
+                // 繪製連線 (簡約虛線)
                 const polyline = L.polyline(latlngs, { 
-                    color: '#5D4037', 
-                    weight: 4, 
-                    opacity: 0.7, 
-                    dashArray: '10, 10', // 虛線效果
+                    color: '#A1887F', 
+                    weight: 3, 
+                    opacity: 0.6, 
+                    dashArray: '8, 8', // 虛線
                     lineCap: 'round'
                 }).addTo(map);
                 
-                map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+                // 自動調整視角以包含所有點
+                map.fitBounds(polyline.getBounds(), { padding: [80, 80] });
                 polylineRef.current = polyline;
 
-                // 4. 初始化移動標記 (小車車)
+                // 4. 初始化移動標記 (使用 emoji 或 svg)
                 const carIcon = L.divIcon({
                     className: '',
-                    html: '<div style="font-size: 24px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));">🚗</div>',
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 15]
+                    html: '<div style="font-size: 32px; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.2)); transform: translateY(-50%);">🚗</div>',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20]
                 });
                 
                 const marker = L.marker(activities[0].coords, { icon: carIcon, zIndexOffset: 1000 }).addTo(map);
@@ -301,27 +359,21 @@
                 startAnimation();
 
                 return () => {
-                    // Cleanup if needed
+                    // Cleanup
                 };
-            }, [day]); // 當 day 改變時重新初始化
+            }, [day]); 
 
             const startAnimation = () => {
                 if (!markerRef.current || activities.length < 2) return;
                 setIsPlaying(true);
+                setCurrentSegment(null);
 
                 const map = mapInstanceRef.current;
                 const latlngs = activities.map(a => a.coords);
                 let startTime = null;
-                const duration = 5000; // 動畫總時長 (毫秒)
+                const totalDuration = 10000; // 總動畫時間 10秒 (放慢一點以便閱讀)
 
-                // 插值函數：計算兩點之間的位置
-                const interpolate = (start, end, factor) => {
-                    const lat = start[0] + (end[0] - start[0]) * factor;
-                    const lng = start[1] + (end[1] - start[1]) * factor;
-                    return [lat, lng];
-                };
-
-                // 計算路徑總長度 (簡單加總每段距離)
+                // 計算路徑總長度與各段距離
                 let totalDist = 0;
                 const distances = [];
                 for(let i=0; i<latlngs.length-1; i++) {
@@ -330,9 +382,15 @@
                     totalDist += d;
                 }
 
+                const interpolate = (start, end, factor) => {
+                    const lat = start[0] + (end[0] - start[0]) * factor;
+                    const lng = start[1] + (end[1] - start[1]) * factor;
+                    return [lat, lng];
+                };
+
                 const animate = (timestamp) => {
                     if (!startTime) startTime = timestamp;
-                    const progress = (timestamp - startTime) / duration;
+                    const progress = (timestamp - startTime) / totalDuration;
 
                     if (progress < 1) {
                         // 計算當前距離
@@ -349,23 +407,40 @@
                             accumulatedDist += distances[i];
                         }
 
+                        // 更新當前路段資訊
+                        const currentActivity = activities[segmentIndex];
+                        const nextActivity = activities[segmentIndex + 1];
+                        
+                        // 檢查是否有設定交通資訊 (存在 currentActivity.transport 中)
+                        const transportInfo = currentActivity.transport || { type: 'walk', duration: '??' };
+
+                        setCurrentSegment({
+                            from: currentActivity.location,
+                            to: nextActivity.location,
+                            transport: getTransportLabel(transportInfo.type),
+                            duration: transportInfo.duration || '預估時間'
+                        });
+
                         // 計算該段的完成比例
                         const segmentProgress = (currentDist - accumulatedDist) / distances[segmentIndex];
                         
-                        // 計算新座標
+                        // 計算新座標並移動
                         const start = latlngs[segmentIndex];
                         const end = latlngs[segmentIndex+1];
                         const newPos = interpolate(start, end, segmentProgress);
 
                         markerRef.current.setLatLng(newPos);
-                        
-                        // 選擇性：讓地圖跟隨移動 (若想聚焦)
-                        // map.panTo(newPos); 
-
                         requestAnimationFrame(animate);
                     } else {
+                        // 動畫結束
                         markerRef.current.setLatLng(latlngs[latlngs.length-1]);
                         setIsPlaying(false);
+                        setCurrentSegment({
+                            from: activities[activities.length-1].location,
+                            to: "旅程結束",
+                            transport: "抵達",
+                            duration: "-"
+                        });
                     }
                 };
 
@@ -373,21 +448,24 @@
             };
 
             return (
-                <div className="fixed inset-0 bg-[#5D4037]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl p-0 animate-in fade-in zoom-in duration-200 border border-[#EFEBE0] overflow-hidden flex flex-col h-[80vh]">
-                        {/* Header */}
-                        <div className="bg-[#F5F0E6] px-6 py-4 flex justify-between items-center border-b border-[#EFEBE0] flex-shrink-0">
-                            <div className="flex items-center gap-2 text-[#5D4037]">
-                                <PlayCircle size={20} className="text-[#CFB997]" />
-                                <h3 className="text-xl font-bold">{day.date} 路線演示</h3>
+                <div className="fixed inset-0 bg-[#5D4037]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl p-0 animate-in fade-in zoom-in duration-300 border border-white/50 overflow-hidden flex flex-col h-[85vh] relative">
+                        
+                        {/* Header (透明浮動) */}
+                        <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-[500] pointer-events-none">
+                            <div className="bg-white/90 backdrop-blur-md px-5 py-3 rounded-2xl shadow-sm border border-[#EFEBE0] pointer-events-auto">
+                                <div className="flex items-center gap-2 text-[#5D4037]">
+                                    <PlayCircle size={20} className="text-[#CFB997]" />
+                                    <h3 className="text-lg font-bold">{day.date} 行程路線</h3>
+                                </div>
                             </div>
-                            <button onClick={onClose} className="text-gray-400 hover:text-[#5D4037]">
-                                <X size={20} />
+                            <button onClick={onClose} className="bg-white/90 backdrop-blur-md p-2 rounded-full shadow-sm border border-[#EFEBE0] text-gray-400 hover:text-[#5D4037] hover:scale-110 transition-all pointer-events-auto">
+                                <X size={24} />
                             </button>
                         </div>
 
                         {/* Map Container */}
-                        <div className="flex-1 relative bg-[#F0EAE0]">
+                        <div className="flex-1 relative bg-[#fcfbf9]">
                             {activities.length > 0 ? (
                                 <div ref={mapRef} className="w-full h-full z-0"></div>
                             ) : (
@@ -396,28 +474,41 @@
                                 </div>
                             )}
                             
-                            {/* Overlay Info */}
-                            <div className="absolute bottom-6 left-6 z-[400] bg-white/90 backdrop-blur px-4 py-3 rounded-xl shadow-lg border border-[#EFEBE0] max-w-xs">
-                                <h4 className="text-xs font-bold text-[#A1887F] uppercase mb-1">ROUTE INFO</h4>
-                                <div className="text-sm font-bold text-[#5D4037]">
-                                    {activities.length} 個停留點
+                            {/* 動態資訊面板 (Bottom Overlay) */}
+                            {currentSegment && (
+                                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[400] w-[90%] max-w-md anim-info-panel bg-white/90 rounded-2xl shadow-lg border border-[#EFEBE0] p-4 flex items-center gap-4 transition-all duration-300">
+                                    <div className="w-12 h-12 bg-[#F5F0E6] rounded-full flex items-center justify-center text-2xl shadow-inner">
+                                        🚗
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-1">
+                                            <span>{currentSegment.transport}</span>
+                                            {currentSegment.duration !== '-' && (
+                                                <>
+                                                    <span className="w-1 h-1 bg-[#D7CCC8] rounded-full"></span>
+                                                    <span className="flex items-center gap-1"><Timer size={10}/> {currentSegment.duration}</span>
+                                                </>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[#5D4037] font-bold truncate">
+                                            <span className="truncate">{currentSegment.from}</span>
+                                            <ArrowRight size={14} className="flex-shrink-0 text-[#CFB997]" />
+                                            <span className="truncate">{currentSegment.to}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                    起點：{activities[0]?.location}<br/>
-                                    終點：{activities[activities.length-1]?.location}
-                                </div>
-                            </div>
+                            )}
                         </div>
 
                         {/* Footer Controls */}
-                        <div className="p-4 border-t border-[#FAFAFA] bg-white flex-shrink-0 flex justify-center">
+                        <div className="p-4 bg-white/80 backdrop-blur-md border-t border-[#EFEBE0] flex-shrink-0 flex justify-center absolute bottom-0 w-full z-[500]">
                             <button 
                                 onClick={startAnimation}
                                 disabled={isPlaying || activities.length < 2}
-                                className="px-8 py-3 bg-[#CFB997] text-white rounded-full font-bold hover:bg-[#BCAAA4] transition-all shadow-md flex items-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-8 py-2.5 bg-[#5D4037] text-white rounded-full font-bold hover:bg-[#4E342E] transition-all shadow-lg flex items-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
                             >
                                 <PlayCircle size={18} /> 
-                                {isPlaying ? '演示中...' : '重新播放路徑'}
+                                {isPlaying ? '旅途進行中...' : '重新播放'}
                             </button>
                         </div>
                     </div>
@@ -1299,6 +1390,7 @@
                     <RouteAnimationModal 
                         day={activeDayData} 
                         onClose={() => setShowRouteAnimModal(false)}
+                        transportOptions={TRANSPORT_OPTIONS}
                     />
                 )}
 
