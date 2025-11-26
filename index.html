@@ -11,6 +11,12 @@
     <!-- 引入 Babel (用於解析 JSX) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- 引入 Leaflet CSS (地圖樣式) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
+    <!-- 引入 Leaflet JS (地圖核心) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
     <!-- 定義模組路徑 (Import Map) -->
     <script type="importmap">
     {
@@ -48,10 +54,29 @@
             scrollbar-width: none;
         }
 
-        /* 背景點點裝飾 - 定義樣式但不直接套用到主容器，改由內部 div 控制透明度 */
+        /* 背景點點裝飾 */
         .bg-dots-pattern {
             background-image: radial-gradient(#5D4037 1px, transparent 1px);
             background-size: 24px 24px;
+        }
+
+        /* Leaflet 地圖相關樣式覆蓋 */
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(93,64,55,0.15);
+        }
+        .leaflet-popup-content {
+            font-family: sans-serif;
+            color: #5D4037;
+            font-weight: bold;
+        }
+        
+        /* 自訂地圖標記動畫 */
+        .custom-marker-icon {
+            transition: all 0.3s ease;
+        }
+        .custom-marker-icon:hover {
+            transform: scale(1.2);
         }
     </style>
 </head>
@@ -69,16 +94,16 @@
             Calendar, Coffee, X, Share2, ExternalLink, ShoppingBag, Music, 
             Sun, Moon, Star, Flag, Plane, Ticket, Gift, Heart, Smile, 
             Umbrella, Anchor, Bike, Zap, BookOpen, Footprints, Car, Bus, 
-            Timer, Banknote, Settings, Clock, Navigation,
+            Timer, Banknote, Settings, Clock, Navigation, PlayCircle,
             Map as MapIcon // 重命名 Map 圖標避免衝突
         } from 'lucide-react';
 
-        // --- 全新設計：24小時制時間選擇器 (修復版) ---
+        // --- 全新設計：24小時制時間選擇器 ---
         const CustomTimePicker = ({ value, onChange }) => {
             const [isOpen, setIsOpen] = useState(false);
-            // 新增：內部狀態，用於即時顯示選擇的結果
-            const [internalTime, setInternalTime] = useState(value || '12:00');
             const containerRef = useRef(null);
+            // 內部狀態，用於即時顯示選擇的結果
+            const [internalTime, setInternalTime] = useState(value || '12:00');
 
             // 當外部 value 改變時 (例如在新增模式)，同步更新內部狀態
             useEffect(() => {
@@ -97,7 +122,6 @@
                 return () => document.removeEventListener('mousedown', handleClickOutside);
             }, []);
 
-            // 使用內部狀態來分割時與分
             const [hour, minute] = internalTime.split(':');
 
             const handleHourChange = (h) => {
@@ -195,10 +219,211 @@
             );
         };
 
-        // 輔助元件：簡單的 Subway Icon
-        function SubwayIcon({size, className}) {
-            return <div className={`flex items-center justify-center border-2 border-current rounded ${className}`} style={{width: size, height: size}}><span className="text-[10px] font-bold">M</span></div>
-        }
+        // --- 地圖路線動畫 Modal (Leaflet Version) ---
+        const RouteAnimationModal = ({ day, onClose }) => {
+            const mapRef = useRef(null);
+            const mapInstanceRef = useRef(null);
+            const markerRef = useRef(null);
+            const polylineRef = useRef(null);
+            const [isPlaying, setIsPlaying] = useState(false);
+
+            // 取得所有有效且有座標的行程 (若無座標，這邊會過濾掉或需要模擬)
+            const activities = day.activities.filter(a => a.location && a.coords);
+
+            useEffect(() => {
+                if (!mapRef.current || activities.length === 0) return;
+
+                // 1. 初始化地圖
+                if (!mapInstanceRef.current) {
+                    const map = L.map(mapRef.current).setView(activities[0].coords, 13);
+                    
+                    // 使用 OpenStreetMap 圖層 (免費，無需 API Key)
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                        maxZoom: 19,
+                    }).addTo(map);
+
+                    mapInstanceRef.current = map;
+                }
+
+                const map = mapInstanceRef.current;
+
+                // 2. 清除舊圖層
+                map.eachLayer((layer) => {
+                    if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+                        map.removeLayer(layer);
+                    }
+                });
+
+                // 3. 繪製路徑與標記
+                const latlngs = activities.map(a => a.coords);
+                
+                // 添加起點與終點標記
+                activities.forEach((act, idx) => {
+                    const iconHtml = `<div style="background-color: #CFB997; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">${idx + 1}</div>`;
+                    
+                    const icon = L.divIcon({
+                        className: 'custom-marker-icon',
+                        html: iconHtml,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    });
+
+                    L.marker(act.coords, { icon })
+                        .bindPopup(`<b>${act.time}</b><br>${act.location}`)
+                        .addTo(map);
+                });
+
+                // 繪製連線
+                const polyline = L.polyline(latlngs, { 
+                    color: '#5D4037', 
+                    weight: 4, 
+                    opacity: 0.7, 
+                    dashArray: '10, 10', // 虛線效果
+                    lineCap: 'round'
+                }).addTo(map);
+                
+                map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+                polylineRef.current = polyline;
+
+                // 4. 初始化移動標記 (小車車)
+                const carIcon = L.divIcon({
+                    className: '',
+                    html: '<div style="font-size: 24px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));">🚗</div>',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                
+                const marker = L.marker(activities[0].coords, { icon: carIcon, zIndexOffset: 1000 }).addTo(map);
+                markerRef.current = marker;
+
+                // 自動開始播放
+                startAnimation();
+
+                return () => {
+                    // Cleanup if needed
+                };
+            }, [day]); // 當 day 改變時重新初始化
+
+            const startAnimation = () => {
+                if (!markerRef.current || activities.length < 2) return;
+                setIsPlaying(true);
+
+                const map = mapInstanceRef.current;
+                const latlngs = activities.map(a => a.coords);
+                let startTime = null;
+                const duration = 5000; // 動畫總時長 (毫秒)
+
+                // 插值函數：計算兩點之間的位置
+                const interpolate = (start, end, factor) => {
+                    const lat = start[0] + (end[0] - start[0]) * factor;
+                    const lng = start[1] + (end[1] - start[1]) * factor;
+                    return [lat, lng];
+                };
+
+                // 計算路徑總長度 (簡單加總每段距離)
+                let totalDist = 0;
+                const distances = [];
+                for(let i=0; i<latlngs.length-1; i++) {
+                    const d = map.distance(latlngs[i], latlngs[i+1]);
+                    distances.push(d);
+                    totalDist += d;
+                }
+
+                const animate = (timestamp) => {
+                    if (!startTime) startTime = timestamp;
+                    const progress = (timestamp - startTime) / duration;
+
+                    if (progress < 1) {
+                        // 計算當前距離
+                        const currentDist = totalDist * progress;
+                        
+                        // 找出當前在哪一段
+                        let accumulatedDist = 0;
+                        let segmentIndex = 0;
+                        for(let i=0; i<distances.length; i++) {
+                            if (accumulatedDist + distances[i] >= currentDist) {
+                                segmentIndex = i;
+                                break;
+                            }
+                            accumulatedDist += distances[i];
+                        }
+
+                        // 計算該段的完成比例
+                        const segmentProgress = (currentDist - accumulatedDist) / distances[segmentIndex];
+                        
+                        // 計算新座標
+                        const start = latlngs[segmentIndex];
+                        const end = latlngs[segmentIndex+1];
+                        const newPos = interpolate(start, end, segmentProgress);
+
+                        markerRef.current.setLatLng(newPos);
+                        
+                        // 選擇性：讓地圖跟隨移動 (若想聚焦)
+                        // map.panTo(newPos); 
+
+                        requestAnimationFrame(animate);
+                    } else {
+                        markerRef.current.setLatLng(latlngs[latlngs.length-1]);
+                        setIsPlaying(false);
+                    }
+                };
+
+                requestAnimationFrame(animate);
+            };
+
+            return (
+                <div className="fixed inset-0 bg-[#5D4037]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl p-0 animate-in fade-in zoom-in duration-200 border border-[#EFEBE0] overflow-hidden flex flex-col h-[80vh]">
+                        {/* Header */}
+                        <div className="bg-[#F5F0E6] px-6 py-4 flex justify-between items-center border-b border-[#EFEBE0] flex-shrink-0">
+                            <div className="flex items-center gap-2 text-[#5D4037]">
+                                <PlayCircle size={20} className="text-[#CFB997]" />
+                                <h3 className="text-xl font-bold">{day.date} 路線演示</h3>
+                            </div>
+                            <button onClick={onClose} className="text-gray-400 hover:text-[#5D4037]">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Map Container */}
+                        <div className="flex-1 relative bg-[#F0EAE0]">
+                            {activities.length > 0 ? (
+                                <div ref={mapRef} className="w-full h-full z-0"></div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-[#A1887F]">
+                                    <p>這天沒有足夠的地點資料來產生路線圖喔！</p>
+                                </div>
+                            )}
+                            
+                            {/* Overlay Info */}
+                            <div className="absolute bottom-6 left-6 z-[400] bg-white/90 backdrop-blur px-4 py-3 rounded-xl shadow-lg border border-[#EFEBE0] max-w-xs">
+                                <h4 className="text-xs font-bold text-[#A1887F] uppercase mb-1">ROUTE INFO</h4>
+                                <div className="text-sm font-bold text-[#5D4037]">
+                                    {activities.length} 個停留點
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                    起點：{activities[0]?.location}<br/>
+                                    終點：{activities[activities.length-1]?.location}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer Controls */}
+                        <div className="p-4 border-t border-[#FAFAFA] bg-white flex-shrink-0 flex justify-center">
+                            <button 
+                                onClick={startAnimation}
+                                disabled={isPlaying || activities.length < 2}
+                                className="px-8 py-3 bg-[#CFB997] text-white rounded-full font-bold hover:bg-[#BCAAA4] transition-all shadow-md flex items-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <PlayCircle size={18} /> 
+                                {isPlaying ? '演示中...' : '重新播放路徑'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
 
         const TravelPlanner = () => {
             // --- 圖標與風格庫 ---
@@ -227,7 +452,8 @@
 
             const TRANSPORT_OPTIONS = [
                 { id: 'train', label: '火車/高鐵', icon: <Train size={18} />, needCost: true },
-                { id: 'mrt', label: '捷運/地鐵', icon: <SubwayIcon size={18} />, needCost: true },
+                // 修正：使用 inline JSX 取代外部 SubwayIcon 元件
+                { id: 'mrt', label: '捷運/地鐵', icon: <div className="flex items-center justify-center border-2 border-current rounded" style={{width: 18, height: 18}}><span className="text-[10px] font-bold">M</span></div>, needCost: true },
                 { id: 'bus', label: '公車/客運', icon: <Bus size={18} />, needCost: true },
                 { id: 'taxi', label: '計程車/Uber', icon: <Car size={18} />, needCost: true },
                 { id: 'car', label: '自行開車', icon: <Car size={18} />, needCost: false },
@@ -237,7 +463,7 @@
                 { id: 'ship', label: '船運', icon: <Anchor size={18} />, needCost: true },
             ];
 
-            // --- 初始數據 ---
+            // --- 初始數據 (加入真實經緯度以便地圖演示) ---
             const initialTripData = {
                 title: "台北輕旅行",
                 destination: "台灣, 台北",
@@ -254,6 +480,7 @@
                         time: "10:00", 
                         type: "transport", 
                         location: "台北火車站", 
+                        coords: [25.0478, 121.5170], // Lat, Lng
                         note: "抵達台北，前往飯店寄放行李", 
                         cost: 0, 
                         transport: { type: 'mrt', duration: '15分', cost: 25 }
@@ -263,10 +490,20 @@
                         time: "12:00", 
                         type: "food", 
                         location: "阜杭豆漿", 
+                        coords: [25.0442, 121.5248],
                         note: "必吃厚燒餅，排隊預計 30 分鐘", 
                         cost: 150, 
                         transport: { type: 'walk', duration: '10分', cost: 0 } 
                     },
+                    {
+                        id: 103,
+                        time: "14:30",
+                        type: "culture",
+                        location: "華山1914文創園區",
+                        coords: [25.0441, 121.5294],
+                        note: "看展覽、逛文創商店",
+                        cost: 300
+                    }
                     ]
                 },
                 {
@@ -274,7 +511,8 @@
                     date: "05/21 Day 2",
                     label: "歷史與夕陽",
                     activities: [
-                    { id: 201, time: "09:30", type: "ticket", location: "國立故宮博物院", note: "參觀翠玉白菜，預計停留 3 小時", cost: 350 },
+                    { id: 201, time: "09:30", type: "ticket", location: "國立故宮博物院", coords: [25.1024, 121.5486], note: "參觀翠玉白菜，預計停留 3 小時", cost: 350 },
+                    { id: 202, time: "16:00", type: "sea", location: "淡水老街", coords: [25.1695, 121.4437], note: "搭捷運至淡水，看夕陽、吃阿給", cost: 0 },
                     ]
                 },
                 {
@@ -299,6 +537,7 @@
             const [showTransportModal, setShowTransportModal] = useState(false);
             const [showSettingsModal, setShowSettingsModal] = useState(false);
             const [showMapModal, setShowMapModal] = useState(false); 
+            const [showRouteAnimModal, setShowRouteAnimModal] = useState(false); // 新增：路線動畫 Modal 狀態
             
             // Forms
             const [newActivityForm, setNewActivityForm] = useState({ 
@@ -536,13 +775,30 @@
                 setShowSettingsModal(false);
             };
 
+            // 新增活動時，因為沒有 API Key 可以反查座標，我們模擬一個座標
+            // 邏輯：取該天最後一個點的座標，稍微偏移一點點，讓路線能繼續畫下去
             const handleAddActivity = () => {
                 if (!newActivityForm.location) return;
                 
+                // 找最後一個已知座標
+                const currentActivities = trip.days.find(d => d.id === activeDayId)?.activities || [];
+                const lastActivity = currentActivities.length > 0 ? currentActivities[currentActivities.length - 1] : null;
+                
+                // 預設座標 (台北車站)
+                let newCoords = [25.0478, 121.5170]; 
+                
+                if (lastActivity && lastActivity.coords) {
+                    // 在最後一個點附近隨機偏移 0.01~0.03 度 (約 1~3 公里)
+                    const latOffset = (Math.random() - 0.5) * 0.05;
+                    const lngOffset = (Math.random() - 0.5) * 0.05;
+                    newCoords = [lastActivity.coords[0] + latOffset, lastActivity.coords[1] + lngOffset];
+                }
+
                 const newAct = {
-                id: Date.now(),
-                ...newActivityForm,
-                completed: false
+                    id: Date.now(),
+                    ...newActivityForm,
+                    coords: newCoords, // 模擬座標
+                    completed: false
                 };
 
                 const updatedDays = trip.days.map(day => {
@@ -775,15 +1031,29 @@
                                 </div>
 
                                 <div className="flex flex-col items-end gap-2">
-                                    <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            deleteDay(activeDayData.id);
-                                        }}
-                                        className="flex items-center gap-1 text-red-300 hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors text-sm border border-transparent hover:border-red-100 active:scale-95"
-                                    >
-                                        <Trash2 size={16} /> 刪除這一天
-                                    </button>
+                                    <div className="flex gap-2">
+                                        {/* 新增：播放路線動畫按鈕 */}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setShowRouteAnimModal(true);
+                                            }}
+                                            className="flex items-center gap-1 text-[#CFB997] hover:text-white hover:bg-[#CFB997] px-3 py-1.5 rounded-lg transition-colors text-sm border border-[#CFB997] active:scale-95"
+                                            title="播放當天行程路線動畫"
+                                        >
+                                            <PlayCircle size={16} /> 播放路線
+                                        </button>
+
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                deleteDay(activeDayData.id);
+                                            }}
+                                            className="flex items-center gap-1 text-red-300 hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors text-sm border border-transparent hover:border-red-100 active:scale-95"
+                                        >
+                                            <Trash2 size={16} /> 刪除這一天
+                                        </button>
+                                    </div>
                                     <div className="text-[#A1887F] text-sm">
                                         {activeDayData?.activities.length} 個行程
                                     </div>
@@ -1022,6 +1292,14 @@
                             </div>
                         </div>
                     </div>
+                )}
+
+                {/* --- Route Animation Modal --- */}
+                {showRouteAnimModal && activeDayData && (
+                    <RouteAnimationModal 
+                        day={activeDayData} 
+                        onClose={() => setShowRouteAnimModal(false)}
+                    />
                 )}
 
                 {/* --- Add Activity Modal --- */}
