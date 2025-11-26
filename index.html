@@ -111,8 +111,8 @@
         } from 'lucide-react';
 
         // --- 全新設計：24小時制時間選擇器 ---
-        // 增加 mode, showIcon, onComplete 屬性以支援不同的使用場景
-        const CustomTimePicker = ({ value, onChange, mode = 'default', showIcon = true, onComplete }) => {
+        // 增加 mode, showIcon, onComplete, placement 屬性
+        const CustomTimePicker = ({ value, onChange, mode = 'default', showIcon = true, onComplete, placement = 'bottom' }) => {
             const [isOpen, setIsOpen] = useState(false);
             const containerRef = useRef(null);
             // 內部狀態，用於即時顯示選擇的結果
@@ -142,7 +142,6 @@
                 setInternalTime(newTime); // 立即更新內部顯示
                 
                 // 如果有提供 onComplete (如列表頁)，則在選完小時的時候只更新內部狀態，不觸發外部更新
-                // 這樣可以避免選小時選到一半，行程就因為排序而跳走
                 if (!onComplete) {
                     onChange && onChange(newTime);
                 }
@@ -228,6 +227,11 @@
                 buttonClass = `flex items-center gap-2 w-full border rounded-xl px-4 py-3 bg-[#FAFAFA] text-[#5D4037] font-mono text-lg outline-none transition-all duration-300 hover:shadow-sm ${isOpen ? 'ring-2 ring-[#CFB997] border-[#CFB997]' : 'border-[#E0E0E0] hover:border-[#D7CCC8]'}`;
             }
 
+            // 根據 placement 決定彈出方向樣式
+            const placementClass = placement === 'top' 
+                ? 'bottom-full mb-2 origin-bottom-left' 
+                : 'top-full mt-2 origin-top-left';
+
             return (
                 <div className="relative inline-block" ref={containerRef}>
                     <button
@@ -240,7 +244,7 @@
                     </button>
 
                     {isOpen && (
-                        <div className="absolute top-full left-0 mt-2 bg-white border border-[#EFEBE0] rounded-xl shadow-xl z-50 flex w-72 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-left">
+                        <div className={`absolute ${placementClass} left-0 bg-white border border-[#EFEBE0] rounded-xl shadow-xl z-50 flex w-72 overflow-hidden animate-in fade-in zoom-in duration-200`}>
                         {renderHours()}
                         {renderMinutes()}
                         </div>
@@ -1250,6 +1254,7 @@
                                                             onComplete={(newTime) => saveActivityEdit(activeDayId, activity.id, { time: newTime })}
                                                             mode="minimal"
                                                             showIcon={false}
+                                                            placement="top"
                                                         />
                                                     </div>
 
@@ -1348,7 +1353,7 @@
                                                 </div>
 
                                                 {nextActivity && (
-                                                    <div className="absolute left-[29px] top-[70px] bottom-[-20px] w-0.5 bg-[#E0D8CE] flex flex-col items-center justify-center z-0">
+                                                    <div className="absolute left-[29px] top-[70px] bottom-[-20px] w-0.5 bg-[#E0D8CE] flex flex-col items-center justify-center z-10">
                                                         <button 
                                                             onClick={() => openTransportModal(activeDayId, activity.id, activity.transport)}
                                                             className={`
@@ -1508,6 +1513,7 @@
                                             className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 pl-12 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none text-[#5D4037]" 
                                         />
                                         <Banknote size={20} className="absolute left-4 top-3.5 text-[#CFB997]" />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">元</span>
                                     </div>
                                 </div>
 
@@ -1560,27 +1566,33 @@
                                     <label className="text-xs font-bold text-[#8D6E63] mb-1 flex items-center gap-1">
                                         <Timer size={12} /> 預估時間
                                     </label>
-                                    <input 
-                                        type="text" 
-                                        placeholder="如: 30分"
-                                        value={transportForm.duration}
-                                        onChange={(e) => setTransportForm({...transportForm, duration: e.target.value})}
-                                        className="w-full border border-[#E0E0E0] rounded-lg p-2 bg-[#FAFAFA] focus:outline-none focus:border-[#CFB997]"
-                                    />
+                                    <div className="relative">
+                                        <input 
+                                            type="text" 
+                                            placeholder="如: 30"
+                                            value={transportForm.duration}
+                                            onChange={(e) => setTransportForm({...transportForm, duration: e.target.value})}
+                                            className="w-full border border-[#E0E0E0] rounded-lg p-2 bg-[#FAFAFA] focus:outline-none focus:border-[#CFB997]"
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">分鐘</span>
+                                    </div>
                                 </div>
                                 
                                 <div>
                                     <label className={`text-xs font-bold text-[#8D6E63] mb-1 flex items-center gap-1 ${!getTransportOption(transportForm.type).needCost && 'opacity-30'}`}>
                                         <Banknote size={12} /> 票價/車資
                                     </label>
-                                    <input 
-                                        type="number" 
-                                        placeholder="0"
-                                        value={transportForm.cost}
-                                        onChange={(e) => setTransportForm({...transportForm, cost: e.target.value})}
-                                        disabled={!getTransportOption(transportForm.type).needCost}
-                                        className={`w-full border border-[#E0E0E0] rounded-lg p-2 bg-[#FAFAFA] focus:outline-none focus:border-[#CFB997] ${!getTransportOption(transportForm.type).needCost && 'bg-gray-100 cursor-not-allowed opacity-50'}`}
-                                    />
+                                    <div className="relative">
+                                        <input 
+                                            type="number" 
+                                            placeholder="0"
+                                            value={transportForm.cost}
+                                            onChange={(e) => setTransportForm({...transportForm, cost: e.target.value})}
+                                            disabled={!getTransportOption(transportForm.type).needCost}
+                                            className={`w-full border border-[#E0E0E0] rounded-lg p-2 bg-[#FAFAFA] focus:outline-none focus:border-[#CFB997] ${!getTransportOption(transportForm.type).needCost && 'bg-gray-100 cursor-not-allowed opacity-50'}`}
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">元</span>
+                                    </div>
                                 </div>
                             </div>
                             
