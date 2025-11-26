@@ -1,1157 +1,1243 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  MapPin, 
-  Utensils, 
-  Camera, 
-  Train, 
-  Bed, 
-  Plus, 
-  Trash2, 
-  Edit3, 
-  Save, 
-  Calendar,
-  Coffee,
-  X,
-  Share2,
-  ExternalLink,
-  Map,
-  ShoppingBag,
-  Music,
-  Sun,
-  Moon,
-  Star,
-  Flag,
-  Plane,
-  Ticket,
-  Gift,
-  Heart,
-  Smile,
-  Umbrella,
-  Anchor,
-  Bike,
-  Zap,
-  BookOpen,
-  Footprints,
-  Car,
-  Bus,
-  Timer,
-  Banknote,
-  Settings,
-  Clock
-} from 'lucide-react';
-
-// --- 全新設計：24小時制時間選擇器 ---
-const CustomTimePicker = ({ value, onChange }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const [hour, minute] = value ? value.split(':') : ['12', '00'];
-
-  const handleHourChange = (h) => {
-    onChange(`${h}:${minute}`);
-  };
-
-  const handleMinuteChange = (m) => {
-    onChange(`${hour}:${m}`);
-    setIsOpen(false);
-  };
-
-  // 生成 00-23 小時選項
-  const renderHours = () => {
-    const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>舒心旅程規劃</title>
     
-    return (
-      <div className="flex-1 border-r border-[#EFEBE0] overflow-y-auto max-h-60 custom-scrollbar p-2">
-        <div className="text-[10px] text-[#A1887F] mb-2 font-bold text-center sticky top-0 bg-white pb-1">時</div>
-        <div className="grid grid-cols-4 gap-1">
-          {hours.map((h) => (
-            <button
-              key={h}
-              onClick={() => handleHourChange(h)}
-              className={`
-                p-2 rounded text-sm font-medium transition-all duration-200
-                ${hour === h 
-                  ? 'bg-[#CFB997] text-white shadow-md scale-105' 
-                  : 'text-[#5D4037] hover:bg-[#F5F0E6]'}
-              `}
-            >
-              {h}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // 生成 00-55 分鐘選項 (5分鐘間隔)
-  const renderMinutes = () => {
-    const minutes = [];
-    for (let i = 0; i < 60; i += 5) {
-      minutes.push(i.toString().padStart(2, '0'));
-    }
-
-    return (
-      <div className="w-20 overflow-y-auto max-h-60 custom-scrollbar bg-[#FAFAFA] p-2">
-         <div className="text-[10px] text-[#A1887F] mb-2 font-bold text-center sticky top-0 bg-[#FAFAFA] pb-1">分</div>
-        <div className="grid grid-cols-1 gap-1">
-          {minutes.map((m) => (
-            <button
-              key={m}
-              onClick={() => handleMinuteChange(m)}
-              className={`
-                py-2 rounded text-sm font-medium transition-colors
-                ${minute === m 
-                  ? 'bg-[#D7CCC8] text-[#5D4037] font-bold shadow-inner' 
-                  : 'text-[#5D4037] hover:bg-[#EFEBE0]'}
-              `}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`
-          flex items-center gap-2 w-full border rounded-xl px-4 py-3 bg-[#FAFAFA] text-[#5D4037] font-mono text-lg outline-none transition-all duration-300
-          hover:shadow-sm
-          ${isOpen ? 'ring-2 ring-[#CFB997] border-[#CFB997]' : 'border-[#E0E0E0] hover:border-[#D7CCC8]'}
-        `}
-      >
-        <Clock size={18} className="text-[#CFB997]" />
-        <span>{value}</span>
-      </button>
-
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-2 bg-white border border-[#EFEBE0] rounded-xl shadow-xl z-50 flex w-72 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-left">
-          {renderHours()}
-          {renderMinutes()}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const TravelPlanner = () => {
-  // --- 圖標與風格庫 ---
-  const ICON_LIBRARY = [
-    { id: 'sightseeing', icon: <Camera size={24} />, label: '觀光', color: 'bg-[#CFB997] text-white' },
-    { id: 'food', icon: <Utensils size={24} />, label: '美食', color: 'bg-[#E6C9A8] text-[#5D4037]' },
-    { id: 'transport', icon: <Train size={24} />, label: '交通', color: 'bg-[#D7CCC8] text-[#5D4037]' },
-    { id: 'hotel', icon: <Bed size={24} />, label: '住宿', color: 'bg-[#DBC1AC] text-[#5D4037]' },
-    { id: 'coffee', icon: <Coffee size={24} />, label: '咖啡', color: 'bg-[#C8B7A6] text-white' },
-    { id: 'shopping', icon: <ShoppingBag size={24} />, label: '購物', color: 'bg-[#F2D7D5] text-[#922B21]' },
-    { id: 'entertainment', icon: <Music size={24} />, label: '娛樂', color: 'bg-[#D2B4DE] text-[#5B2C6F]' },
-    { id: 'flight', icon: <Plane size={24} />, label: '飛行', color: 'bg-[#B3E5FC] text-[#0277BD]' },
-    { id: 'ticket', icon: <Ticket size={24} />, label: '票券', color: 'bg-[#FFCCBC] text-[#D84315]' },
-    { id: 'gift', icon: <Gift size={24} />, label: '禮物', color: 'bg-[#F8BBD0] text-[#C2185B]' },
-    { id: 'date', icon: <Heart size={24} />, label: '約會', color: 'bg-[#FFCDD2] text-[#C62828]' },
-    { id: 'relax', icon: <Smile size={24} />, label: '放鬆', color: 'bg-[#DCEDC8] text-[#33691E]' },
-    { id: 'nature', icon: <Umbrella size={24} />, label: '自然', color: 'bg-[#C5E1A5] text-[#33691E]' },
-    { id: 'sea', icon: <Anchor size={24} />, label: '海邊', color: 'bg-[#B2EBF2] text-[#006064]' },
-    { id: 'activity', icon: <Bike size={24} />, label: '運動', color: 'bg-[#FFECB3] text-[#FF6F00]' },
-    { id: 'highlight', icon: <Zap size={24} />, label: '重點', color: 'bg-[#FFE082] text-[#FF6F00]' },
-    { id: 'culture', icon: <BookOpen size={24} />, label: '文化', color: 'bg-[#D1C4E9] text-[#4527A0]' },
-    { id: 'morning', icon: <Sun size={24} />, label: '早晨', color: 'bg-[#FFF9C4] text-[#FBC02D]' },
-    { id: 'night', icon: <Moon size={24} />, label: '夜晚', color: 'bg-[#37474F] text-[#ECEFF1]' },
-    { id: 'custom', icon: <Star size={24} />, label: '其他', color: 'bg-[#E0E0E0] text-[#616161]' },
-  ];
-
-  const TRANSPORT_OPTIONS = [
-    { id: 'train', label: '火車/高鐵', icon: <Train size={18} />, needCost: true },
-    { id: 'mrt', label: '捷運/地鐵', icon: <SubwayIcon size={18} />, needCost: true },
-    { id: 'bus', label: '公車/客運', icon: <Bus size={18} />, needCost: true },
-    { id: 'taxi', label: '計程車/Uber', icon: <Car size={18} />, needCost: true },
-    { id: 'car', label: '自行開車', icon: <Car size={18} />, needCost: false },
-    { id: 'bike', label: '騎車', icon: <Bike size={18} />, needCost: false },
-    { id: 'walk', label: '步行', icon: <Footprints size={18} />, needCost: false },
-    { id: 'flight', label: '飛機', icon: <Plane size={18} />, needCost: true },
-    { id: 'ship', label: '船運', icon: <Anchor size={18} />, needCost: true },
-  ];
-
-  function SubwayIcon({size, className}) {
-    return <div className={`flex items-center justify-center border-2 border-current rounded ${className}`} style={{width: size, height: size}}><span className="text-[10px] font-bold">M</span></div>
-  }
-
-  // --- 初始數據 ---
-  const initialTripData = {
-    title: "台北輕旅行",
-    destination: "台灣, 台北",
-    startDate: "2024-05-20",
-    endDate: "2024-05-22",
-    days: [
-      {
-        id: 1,
-        date: "05/20 Day 1",
-        label: "城市探索",
-        activities: [
-          { 
-            id: 101, 
-            time: "10:00", 
-            type: "transport", 
-            location: "台北火車站", 
-            note: "抵達台北，前往飯店寄放行李", 
-            cost: 0, 
-            transport: { type: 'mrt', duration: '15分', cost: 25 }
-          },
-          { 
-            id: 102, 
-            time: "12:00", 
-            type: "food", 
-            location: "阜杭豆漿", 
-            note: "必吃厚燒餅，排隊預計 30 分鐘", 
-            cost: 150, 
-            transport: { type: 'walk', duration: '10分', cost: 0 } 
-          },
-        ]
-      },
-      {
-        id: 2,
-        date: "05/21 Day 2",
-        label: "歷史與夕陽",
-        activities: [
-          { id: 201, time: "09:30", type: "ticket", location: "國立故宮博物院", note: "參觀翠玉白菜，預計停留 3 小時", cost: 350 },
-        ]
-      },
-      {
-        id: 3,
-        date: "05/22 Day 3",
-        label: "準備返家",
-        activities: []
-      }
-    ]
-  };
-
-  // --- State ---
-  const [trip, setTrip] = useState(initialTripData);
-  const [activeDayId, setActiveDayId] = useState(1);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingActivity, setEditingActivity] = useState(null);
-  const [editingDayTitle, setEditingDayTitle] = useState(false);
-  const [tempDayTitle, setTempDayTitle] = useState("");
-  
-  // Modals
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showTransportModal, setShowTransportModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  
-  // Forms
-  const [newActivityForm, setNewActivityForm] = useState({ 
-    time: "12:00", 
-    type: "sightseeing", 
-    location: "", 
-    note: "",
-    cost: "" 
-  });
-  
-  const [transportForm, setTransportForm] = useState({
-    dayId: null,
-    activityId: null,
-    type: 'train',
-    duration: '',
-    cost: ''
-  });
-
-  const [settingsForm, setSettingsForm] = useState({
-      title: "",
-      destination: "",
-      startDate: "",
-      endDate: ""
-  });
-
-  const [sidebarWidth, setSidebarWidth] = useState(320);
-  const [isResizing, setIsResizing] = useState(false);
-  const sidebarRef = useRef(null);
-
-  // --- Helper Functions ---
-  const getGoogleMapLink = (location) => {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-  };
-
-  const getIconData = (type) => {
-    return ICON_LIBRARY.find(item => item.id === type) || ICON_LIBRARY[ICON_LIBRARY.length - 1];
-  };
-
-  const getTransportOption = (type) => {
-    return TRANSPORT_OPTIONS.find(t => t.id === type) || TRANSPORT_OPTIONS[0];
-  };
-
-  const formatDateRange = (start, end) => {
-      if (!start) return "未設定日期";
-      return `${start.replace(/-/g, '/')} - ${end ? end.replace(/-/g, '/') : '?'}`;
-  };
-
-  // 輔助：格式化日期 M/D
-  const formatDateMMDD = (dateObj) => {
-    return `${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getDate().toString().padStart(2, '0')}`;
-  };
-
-  // --- Resizing Logic ---
-  const startResizing = (e) => {
-    e.preventDefault();
-    setIsResizing(true);
-  };
-
-  const stopResizing = () => {
-    setIsResizing(false);
-  };
-
-  const resize = (e) => {
-    if (isResizing) {
-      const newWidth = Math.max(250, Math.min(600, e.clientX));
-      setSidebarWidth(newWidth);
-    }
-  };
-
-  useEffect(() => {
-    window.addEventListener('mousemove', resize);
-    window.addEventListener('mouseup', stopResizing);
-    return () => {
-      window.removeEventListener('mousemove', resize);
-      window.removeEventListener('mouseup', stopResizing);
-    };
-  }, [isResizing]);
-
-  // --- CRUD Operations ---
-  
-  const deleteDay = (dayId) => {
-    if (trip.days.length === 0) return;
-    if (!window.confirm("確定要刪除這整天的行程嗎？(包含所有活動，刪除後無法復原)")) return;
-
-    const newDays = trip.days.filter(d => d.id !== dayId);
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    // 重新編號
-    // 注意：如果是手動刪除一天，日期的連續性可能會斷掉，這裡我們選擇保留剩餘天數的原始日期資訊，還是重置？
-    // 為了保持「自動化」的邏輯，如果使用者手動刪除，我們暫時只重新編號 Day X，不強制重算日期，以免打亂特殊安排
-    const reindexedDays = newDays.map((day, index) => {
-        // 嘗試從原始標題中保留日期部分 (例如 "05/21 Day 2" -> "05/21")
-        const datePart = day.date.split(' ')[0];
-        return {
-           ...day,
-           date: `${datePart} Day ${index + 1}`
-        };
-    });
-
-    setTrip({ ...trip, days: reindexedDays });
+    <!-- 引入 React 和 ReactDOM (使用 cdnjs Production 版本，更穩定) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     
-    if (reindexedDays.length === 0) {
-        setActiveDayId(null);
-    } else {
-        if (activeDayId === dayId) {
-             setActiveDayId(reindexedDays[0].id);
-        } else {
-             const exists = reindexedDays.find(d => d.id === activeDayId);
-             if (!exists) setActiveDayId(reindexedDays[0].id);
+    <!-- 引入 Babel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    
+    <!-- 引入 Lucide React 圖標庫 (使用較穩定的版本) -->
+    <script src="https://unpkg.com/lucide-react@0.294.0/dist/umd/lucide-react.js"></script>
+
+    <style>
+        /* 自定義滾動條樣式 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
         }
-    }
-  };
-
-  const saveDayTitle = () => {
-    const updatedDays = trip.days.map(d => 
-        d.id === activeDayId ? { ...d, label: tempDayTitle } : d
-    );
-    setTrip({ ...trip, days: updatedDays });
-    setEditingDayTitle(false);
-  };
-
-  const deleteActivity = (dayId, actId) => {
-    const updatedDays = trip.days.map(day => {
-      if (day.id === dayId) {
-        return { ...day, activities: day.activities.filter(a => a.id !== actId) };
-      }
-      return day;
-    });
-    setTrip({ ...trip, days: updatedDays });
-  };
-
-  const saveActivityEdit = (dayId, actId, newData) => {
-    const updatedDays = trip.days.map(day => {
-      if (day.id === dayId) {
-        return {
-          ...day,
-          activities: day.activities.map(act => act.id === actId ? { ...act, ...newData } : act)
-        };
-      }
-      return day;
-    });
-    setTrip({ ...trip, days: updatedDays });
-    setEditingActivity(null);
-  };
-
-  const saveTransport = () => {
-    const { dayId, activityId, type, duration, cost } = transportForm;
-    const transportData = { type, duration, cost };
-    
-    const option = getTransportOption(type);
-    if (!option.needCost) {
-        transportData.cost = 0;
-    }
-
-    const updatedDays = trip.days.map(day => {
-      if (day.id === dayId) {
-        return {
-          ...day,
-          activities: day.activities.map(act => act.id === activityId ? { ...act, transport: transportData } : act)
-        };
-      }
-      return day;
-    });
-
-    setTrip({ ...trip, days: updatedDays });
-    setShowTransportModal(false);
-  };
-
-  const openTransportModal = (dayId, activityId, currentTransport) => {
-    setTransportForm({
-        dayId,
-        activityId,
-        type: currentTransport?.type || 'train',
-        duration: currentTransport?.duration || '',
-        cost: currentTransport?.cost || ''
-    });
-    setShowTransportModal(true);
-  };
-
-  const openSettingsModal = () => {
-      setSettingsForm({
-          title: trip.title,
-          destination: trip.destination,
-          startDate: trip.startDate,
-          endDate: trip.endDate
-      });
-      setShowSettingsModal(true);
-  };
-
-  // --- 自動化生成天數邏輯 ---
-  const saveSettings = () => {
-      const { title, destination, startDate, endDate } = settingsForm;
-      
-      let newDays = [...trip.days];
-
-      // 如果有設定完整的日期範圍，進行自動化天數計算
-      if (startDate && endDate) {
-          const start = new Date(startDate);
-          const end = new Date(endDate);
-          const diffTime = Math.abs(end - start);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // 包含頭尾
-
-          if (!isNaN(diffDays) && diffDays > 0) {
-              // 建立新的天數陣列
-              const generatedDays = [];
-              for (let i = 0; i < diffDays; i++) {
-                  const currentDate = new Date(start);
-                  currentDate.setDate(start.getDate() + i);
-                  const dateStr = formatDateMMDD(currentDate); // e.g., "05/21"
-                  const displayDate = `${dateStr} Day ${i + 1}`;
-
-                  // 嘗試保留原有的行程 (如果原陣列該位置有資料)
-                  const existingDay = trip.days[i];
-                  
-                  if (existingDay) {
-                      generatedDays.push({
-                          ...existingDay,
-                          date: displayDate, // 更新日期標題
-                      });
-                  } else {
-                      // 新增的一天
-                      generatedDays.push({
-                          id: Date.now() + i, // 簡單的 ID 生成
-                          date: displayDate,
-                          label: "自由活動",
-                          activities: []
-                      });
-                  }
-              }
-              newDays = generatedDays;
-          }
-      }
-
-      setTrip({
-          ...trip,
-          title,
-          destination,
-          startDate,
-          endDate,
-          days: newDays
-      });
-      
-      // 確保 activeDayId 存在
-      if(newDays.length > 0) {
-          if (!newDays.find(d => d.id === activeDayId)) {
-             setActiveDayId(newDays[0].id);
-          }
-      } else {
-          setActiveDayId(null);
-      }
-
-      setShowSettingsModal(false);
-  };
-
-  const handleAddActivity = () => {
-    if (!newActivityForm.location) return;
-    
-    const newAct = {
-      id: Date.now(),
-      ...newActivityForm,
-      completed: false
-    };
-
-    const updatedDays = trip.days.map(day => {
-      if (day.id === activeDayId) {
-        const newActivities = [...day.activities, newAct].sort((a, b) => a.time.localeCompare(b.time));
-        return { ...day, activities: newActivities };
-      }
-      return day;
-    });
-
-    setTrip({ ...trip, days: updatedDays });
-    setShowAddModal(false);
-    setNewActivityForm({ 
-        time: "12:00", 
-        type: "sightseeing", 
-        location: "", 
-        note: "",
-        cost: ""
-    });
-  };
-
-  const handleAddDay = () => {
-    const newDayId = Date.now();
-    const dayCount = trip.days.length + 1;
-    // 如果有開始日期，嘗試推算新的一天的日期
-    let dateStr = "";
-    if (trip.startDate) {
-        const start = new Date(trip.startDate);
-        if (!isNaN(start)) {
-             const nextDate = new Date(start);
-             nextDate.setDate(start.getDate() + dayCount - 1);
-             dateStr = formatDateMMDD(nextDate);
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
         }
-    }
-    
-    const newDay = {
-      id: newDayId,
-      date: `${dateStr} Day ${dayCount}`,
-      label: "新的一天",
-      activities: []
-    };
-    setTrip({ ...trip, days: [...trip.days, newDay] });
-    setActiveDayId(newDayId);
-  };
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #D7CCC8;
+            border-radius: 20px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: #A1887F;
+        }
+        
+        /* 隱藏滾動條但保留功能 */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
 
-  const activeDayData = trip.days.find(d => d.id === activeDayId);
+        /* 背景點點裝飾 */
+        .bg-dots-pattern {
+            background-image: radial-gradient(#5D4037 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+    </style>
+</head>
+<body class="bg-[#FDFBF7] text-[#5D4037] font-sans selection:bg-[#CFB997] selection:text-white">
+    <div id="root"></div>
 
-  return (
-    <div className="flex h-screen bg-[#FDFBF7] text-[#5D4037] font-sans selection:bg-[#CFB997] selection:text-white overflow-hidden">
-      
-      {/* --- Sidebar --- */}
-      <aside 
-        ref={sidebarRef}
-        style={{ width: sidebarWidth }}
-        className="flex-shrink-0 bg-[#F5F0E6] flex flex-col border-r border-[#EFEBE0] shadow-[4px_0_24px_rgba(93,64,55,0.03)] z-20 relative transition-width duration-75 ease-linear"
-      >
-        {/* 旅行資訊 */}
-        <div className="p-8 pb-4 animate-in fade-in slide-in-from-left-4 duration-700 group">
-          <div className="flex items-center gap-2 mb-2 opacity-60 text-xs tracking-widest uppercase font-bold text-[#8D6E63]">
-            <MapPin size={12} />
-            {trip.destination}
-          </div>
-          <h1 className="text-3xl font-bold text-[#5D4037] mb-4 leading-tight">{trip.title}</h1>
-          
-          {/* 日期與設定按鈕 */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-sm text-[#8D6E63] bg-[#EFEBE0] py-2 px-3 rounded-lg inline-flex">
-                <Calendar size={14} />
-                <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
-            </div>
-            <button 
-                onClick={openSettingsModal}
-                className="p-2 bg-white rounded-lg shadow-sm text-[#CFB997] hover:bg-[#CFB997] hover:text-white transition-all hover:rotate-90 duration-300"
-                title="旅程設定 (日期/地點)"
-            >
-                <Settings size={16} />
-            </button>
-          </div>
-        </div>
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+        
+        // 安全載入 Lucide
+        const lucide = window.lucideReact;
 
-        {/* 天數導航 */}
-        <nav className="flex-1 overflow-y-auto px-6 py-4 space-y-3 scrollbar-hide">
-          <div className="flex justify-between items-center mb-2 px-2">
-             <div className="text-xs font-bold text-[#A1887F] uppercase tracking-wider">Itinerary</div>
-          </div>
-          
-          {trip.days.map((day, idx) => (
-            <div 
-              key={day.id}
-              className="relative group/item animate-in fade-in slide-in-from-left-8 duration-500 fill-mode-backwards"
-              style={{ animationDelay: `${idx * 100}ms` }}
-            >
-                <button
-                onClick={() => setActiveDayId(day.id)}
-                className={`
-                    w-full text-left px-5 py-4 rounded-xl transition-all duration-300 relative overflow-hidden group/btn
-                    ${activeDayId === day.id 
-                    ? 'bg-white shadow-md border border-[#EFEBE0] translate-x-2' 
-                    : 'hover:bg-[#EFEBE0] hover:translate-x-1 border border-transparent'}
-                `}
-                >
-                <div className="flex items-center justify-between relative z-10">
-                    <div>
-                    <div className={`text-xs font-bold mb-1 transition-colors ${activeDayId === day.id ? 'text-[#CFB997]' : 'text-[#A1887F]'}`}>
-                        {day.date}
+        if (!lucide) {
+            console.error("Lucide React library failed to load.");
+            document.getElementById('root').innerHTML = `
+                <div class="min-h-screen flex items-center justify-center p-10 text-[#5D4037] bg-[#FDFBF7]">
+                    <div class="text-center">
+                        <h2 class="text-2xl font-bold mb-2">圖標庫載入失敗</h2>
+                        <p>請檢查您的網路連線，或稍後重新整理頁面。</p>
                     </div>
-                    <div className="font-bold text-lg text-[#5D4037] truncate w-32">{day.label}</div>
-                    </div>
-                    {activeDayId === day.id && <div className="h-2 w-2 rounded-full bg-[#CFB997] animate-pulse" />}
                 </div>
-                </button>
-            </div>
-          ))}
+            `;
+            throw new Error("Lucide load failed");
+        }
 
-          {trip.days.length === 0 && (
-             <div className="text-center py-8 text-[#A1887F] text-sm italic">
-                行程表是空的...
-             </div>
-          )}
-          
-          <button 
-            onClick={handleAddDay}
-            className="w-full py-3 mt-4 border-2 border-dashed border-[#D7CCC8] rounded-xl text-[#A1887F] hover:border-[#CFB997] hover:text-[#CFB997] hover:bg-white/50 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm font-bold"
-          >
-            <Plus size={16} /> 新增天數
-          </button>
-        </nav>
+        // 從全局 lucideReact 對象中解構圖標
+        const { 
+            MapPin, Utensils, Camera, Train, Bed, Plus, Trash2, Edit3, Save, 
+            Calendar, Coffee, X, Share2, ExternalLink, ShoppingBag, Music, 
+            Sun, Moon, Star, Flag, Plane, Ticket, Gift, Heart, Smile, 
+            Umbrella, Anchor, Bike, Zap, BookOpen, Footprints, Car, Bus, 
+            Timer, Banknote, Settings, Clock, Navigation,
+            Map: MapIcon // 重命名 Map 圖標
+        } = lucide;
 
-        {/* 底部功能 */}
-        <div className="p-6 border-t border-[#E0D8CE] bg-[#F0EAE0]">
-            <div className="flex gap-3">
-                <button className="flex-1 py-3 bg-[#CFB997] text-white rounded-lg hover:bg-[#BCAAA4] transition-all hover:-translate-y-0.5 font-bold shadow-sm flex items-center justify-center gap-2 active:scale-95">
-                    <Share2 size={18} /> 分享
-                </button>
-                <button 
-                    onClick={() => setIsEditing(!isEditing)}
-                    className={`px-4 rounded-lg border border-[#D7CCC8] transition-colors flex items-center justify-center active:scale-95 ${isEditing ? 'bg-[#5D4037] text-white' : 'bg-white text-[#5D4037] hover:bg-[#FAF9F6]'}`}
-                    title="編輯模式"
-                >
-                    <Edit3 size={18} />
-                </button>
-            </div>
-        </div>
-      </aside>
+        // --- 全新設計：24小時制時間選擇器 ---
+        const CustomTimePicker = ({ value, onChange }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const containerRef = useRef(null);
 
-      {/* --- Resizer --- */}
-      <div
-        className="w-4 bg-[#FDFBF7] hover:bg-[#EFEBE0] cursor-col-resize flex items-center justify-center z-30 transition-colors group relative -ml-2"
-        onMouseDown={startResizing}
-      >
-        <div className="w-[1px] h-8 bg-[#D7CCC8] group-hover:bg-[#8D6E63]"></div>
-        <div className="absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-[#5D4037] text-white text-[10px] px-1 py-0.5 rounded pointer-events-none whitespace-nowrap shadow-sm">
-            拖曳調整
-        </div>
-      </div>
+            useEffect(() => {
+                const handleClickOutside = (event) => {
+                    if (containerRef.current && !containerRef.current.contains(event.target)) {
+                        setIsOpen(false);
+                    }
+                };
+                document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }, []);
 
-      {/* --- Main Content --- */}
-      <main className="flex-1 overflow-y-auto relative bg-dots-pattern">
-        {/* 背景裝飾 */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
-             style={{ backgroundImage: 'radial-gradient(#5D4037 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
-        </div>
+            const [hour, minute] = value ? value.split(':') : ['12', '00'];
 
-        <div 
-            key={activeDayId} 
-            className="max-w-4xl mx-auto px-12 py-16 animate-in fade-in slide-in-from-bottom-8 duration-500 ease-out"
-        >
-          
-          {trip.days.length === 0 || !activeDayData ? (
-             // 空狀態
-             <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in zoom-in duration-500">
-                 <div className="p-8 rounded-full bg-[#F5F0E6] mb-6 animate-pulse">
-                    <Calendar size={48} className="text-[#8D6E63]" />
-                 </div>
-                 <h2 className="text-3xl font-bold text-[#5D4037] mb-4">重新開始規劃</h2>
-                 <p className="text-[#8D6E63] mb-8">目前的行程表空空如也，新增第一天來開始吧！</p>
-                 <button 
-                    onClick={handleAddDay}
-                    className="px-8 py-4 bg-[#CFB997] text-white rounded-full shadow-lg hover:bg-[#BCAAA4] transition-all hover:scale-105 active:scale-95 font-bold text-lg flex items-center gap-2"
-                 >
-                    <Plus size={24} /> 建立第一天行程
-                 </button>
-             </div>
-          ) : (
-             <>
-                {/* 標題與刪除區 */}
-                <div className="mb-12 flex items-end justify-between border-b border-[#EFEBE0] pb-6">
-                    <div className="flex-1">
-                        <span className="text-[#CFB997] font-bold text-lg block mb-1 animate-in fade-in duration-700">{activeDayData?.date}</span>
-                        
-                        {editingDayTitle ? (
-                            <div className="flex items-center gap-2">
-                                <input 
-                                    type="text" 
-                                    autoFocus
-                                    value={tempDayTitle}
-                                    onChange={(e) => setTempDayTitle(e.target.value)}
-                                    className="text-4xl font-bold text-[#5D4037] bg-transparent border-b-2 border-[#CFB997] focus:outline-none w-full max-w-md"
-                                    onKeyDown={(e) => e.key === 'Enter' && saveDayTitle()}
-                                />
-                                <button onClick={saveDayTitle} className="p-2 bg-[#CFB997] text-white rounded-full hover:bg-[#BCAAA4] animate-in zoom-in">
-                                    <Save size={20} />
-                                </button>
-                            </div>
-                        ) : (
-                            <h2 
-                                className="text-4xl font-bold text-[#5D4037] cursor-pointer hover:text-[#8D6E63] group flex items-center gap-3 transition-colors duration-300"
-                                onClick={() => {
-                                    setTempDayTitle(activeDayData?.label);
-                                    setEditingDayTitle(true);
-                                }}
-                                title="點擊修改標題"
+            const handleHourChange = (h) => {
+                onChange(`${h}:${minute}`);
+            };
+
+            const handleMinuteChange = (m) => {
+                onChange(`${hour}:${m}`);
+                setIsOpen(false);
+            };
+
+            // 生成 00-23 小時選項
+            const renderHours = () => {
+                const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+                
+                return (
+                    <div className="flex-1 border-r border-[#EFEBE0] overflow-y-auto max-h-60 custom-scrollbar p-2">
+                        <div className="text-[10px] text-[#A1887F] mb-2 font-bold text-center sticky top-0 bg-white pb-1">時</div>
+                        <div className="grid grid-cols-4 gap-1">
+                        {hours.map((h) => (
+                            <button
+                            key={h}
+                            onClick={() => handleHourChange(h)}
+                            className={`
+                                p-2 rounded text-sm font-medium transition-all duration-200
+                                ${hour === h 
+                                ? 'bg-[#CFB997] text-white shadow-md scale-105' 
+                                : 'text-[#5D4037] hover:bg-[#F5F0E6]'}
+                            `}
                             >
-                                {activeDayData?.label}
-                                <Edit3 size={24} className="opacity-0 group-hover:opacity-30 transition-opacity text-[#CFB997] duration-300" />
-                            </h2>
-                        )}
-                    </div>
-
-                    <div className="flex flex-col items-end gap-2">
-                         <button 
-                             onClick={() => deleteDay(activeDayData.id)}
-                             className="flex items-center gap-1 text-red-300 hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors text-sm border border-transparent hover:border-red-100 active:scale-95"
-                         >
-                             <Trash2 size={16} /> 刪除這一天
-                         </button>
-                        <div className="text-[#A1887F] text-sm">
-                            {activeDayData?.activities.length} 個行程
+                            {h}
+                            </button>
+                        ))}
                         </div>
                     </div>
-                </div>
+                );
+            };
 
-                {/* 行程列表 */}
-                {activeDayData.activities.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-32 border-2 border-dashed border-[#EFEBE0] rounded-3xl bg-white/50 animate-in fade-in zoom-in duration-500">
-                    <Coffee size={64} className="mb-6 text-[#D7CCC8]" />
-                    <p className="text-xl text-[#8D6E63] font-medium mb-2">這一天還是一張白紙</p>
-                    <p className="text-[#A1887F] mb-8">點擊標題可以修改這天的名稱喔！</p>
-                    <button 
-                        onClick={() => setShowAddModal(true)}
-                        className="px-8 py-3 bg-[#CFB997] text-white rounded-full shadow-lg hover:bg-[#BCAAA4] hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-2 font-bold active:scale-95"
-                    >
-                        <Plus size={20} /> 新增第一個行程
-                    </button>
-                    </div>
-                ) : (
-                    <div className="space-y-0 relative pl-4 pb-20">
+            // 生成 00-55 分鐘選項 (5分鐘間隔)
+            const renderMinutes = () => {
+                const minutes = [];
+                for (let i = 0; i < 60; i += 5) {
+                    minutes.push(i.toString().padStart(2, '0'));
+                }
 
-                        {activeDayData.activities.map((activity, index) => {
-                            const iconData = getIconData(activity.type);
-                            const nextActivity = activeDayData.activities[index + 1];
-                            const hasTransport = !!activity.transport;
-                            const transportInfo = activity.transport ? getTransportOption(activity.transport.type) : null;
-                            const hasCost = activity.cost && Number(activity.cost) > 0;
-                            
-                            return (
-                                <div 
-                                    key={activity.id} 
-                                    className="relative animate-in slide-in-from-bottom-4 duration-700 fill-mode-backwards"
-                                    style={{ animationDelay: `${index * 150}ms` }}
-                                >
-                                    <div className="flex gap-8 group relative z-10">
-                                        {/* 左側：時間與圖標 */}
-                                        <div className="flex flex-col items-center min-w-[60px] pt-2 relative">
-                                            <div className={`
-                                                w-14 h-14 rounded-2xl rotate-3 flex items-center justify-center shadow-md border-[3px] border-[#FDFBF7] transition-all duration-300 group-hover:rotate-0 group-hover:scale-110 group-hover:shadow-lg
-                                                ${iconData.color}
-                                            `}>
-                                                {iconData.icon}
-                                            </div>
-                                            <span className="mt-2 text-sm font-bold text-[#8D6E63] font-mono bg-[#FDFBF7] px-2 py-0.5 rounded-md border border-[#EFEBE0] shadow-sm">
-                                                {activity.time}
-                                            </span>
-                                        </div>
-
-                                        {/* 右側：卡片 */}
-                                        <div className="flex-1 bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(93,64,55,0.05)] border border-[#EFEBE0] group-hover:border-[#CFB997]/50 group-hover:shadow-[0_8px_30px_rgba(93,64,55,0.08)] transition-all duration-300 relative overflow-hidden mb-8 transform hover:-translate-y-1 hover:shadow-lg">
-                                            {/* 裝飾線 */}
-                                            <div className="absolute top-0 left-0 w-1 h-full bg-[#EFEBE0] group-hover:bg-[#CFB997] transition-colors duration-300"></div>
-
-                                            {editingActivity === activity.id ? (
-                                                // 編輯模式
-                                                <div className="pl-4 space-y-4">
-                                                    <div className="flex gap-4">
-                                                        <div className="w-1/3">
-                                                           {/* 自訂時間選擇器 (編輯模式) */}
-                                                           <CustomTimePicker 
-                                                              value={activity.time} 
-                                                              onChange={(val) => {
-                                                                 const input = document.getElementById(`edit-time-${activity.id}`);
-                                                                 if(input) input.value = val;
-                                                              }} 
-                                                           />
-                                                           <input type="hidden" defaultValue={activity.time} id={`edit-time-${activity.id}`} />
-                                                        </div>
-                                                        <input type="text" defaultValue={activity.location} id={`edit-loc-${activity.id}`} className="flex-1 bg-[#FAFAFA] border border-[#E0E0E0] rounded-xl p-3 font-bold text-[#5D4037]" />
-                                                    </div>
-                                                    
-                                                    {/* 編輯模式下的費用欄位 */}
-                                                    <div>
-                                                        <label className="text-xs text-[#A1887F] mb-1 block">門票/費用 (0為免費)</label>
-                                                        <div className="relative">
-                                                             <Banknote size={14} className="absolute left-3 top-2.5 text-[#CFB997]" />
-                                                             <input 
-                                                                type="number" 
-                                                                defaultValue={activity.cost} 
-                                                                id={`edit-cost-${activity.id}`} 
-                                                                placeholder="0"
-                                                                className="w-full bg-[#FAFAFA] border border-[#E0E0E0] rounded p-2 pl-9 text-sm" 
-                                                            />
-                                                        </div>
-                                                    </div>
-
-                                                    <textarea defaultValue={activity.note} id={`edit-note-${activity.id}`} className="w-full bg-[#FAFAFA] border border-[#E0E0E0] rounded p-2 text-sm resize-none h-20" />
-                                                    <div className="flex justify-end gap-2 pt-2">
-                                                        <button onClick={() => setEditingActivity(null)} className="px-3 py-1 text-sm text-gray-400 hover:text-gray-600">取消</button>
-                                                        <button 
-                                                            onClick={() => {
-                                                                const timeInput = document.getElementById(`edit-time-${activity.id}`);
-                                                                const time = timeInput.value; 
-                                                                const location = document.getElementById(`edit-loc-${activity.id}`).value;
-                                                                const note = document.getElementById(`edit-note-${activity.id}`).value;
-                                                                const cost = document.getElementById(`edit-cost-${activity.id}`).value;
-                                                                saveActivityEdit(activeDayId, activity.id, { time, location, note, cost });
-                                                            }}
-                                                            className="px-4 py-1 text-sm bg-[#CFB997] text-white rounded hover:bg-[#BCAAA4]"
-                                                        >
-                                                            <Save size={14} /> 儲存
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                // 檢視模式
-                                                <div className="pl-4 flex justify-between items-start gap-6">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <span className="text-[10px] uppercase tracking-wider font-bold text-[#A1887F] bg-[#F5F0E6] px-2 py-0.5 rounded transition-colors group-hover:bg-[#EFEBE0]">
-                                                                {iconData.label}
-                                                            </span>
-                                                            {hasCost ? (
-                                                                <span className="text-[10px] font-bold text-[#5D4037] bg-[#FFF3E0] px-2 py-0.5 rounded border border-[#FFE0B2] flex items-center gap-1">
-                                                                    <Banknote size={10} /> ${activity.cost}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-[10px] font-bold text-[#689F38] bg-[#F1F8E9] px-2 py-0.5 rounded border border-[#DCEDC8]">
-                                                                    免費 / 免票
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <h3 className="text-2xl font-bold text-[#5D4037] mb-2">{activity.location}</h3>
-                                                        <p className="text-[#8D6E63] leading-relaxed whitespace-pre-line">{activity.note}</p>
-                                                        
-                                                        <div className="mt-4 pt-4 border-t border-[#FAFAFA] flex items-center">
-                                                            <a 
-                                                                href={getGoogleMapLink(activity.location)}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="inline-flex items-center gap-2 text-sm font-medium text-[#CFB997] hover:text-[#8D6E63] transition-colors group/link bg-[#FAFAFA] hover:bg-[#F5F0E6] px-3 py-1.5 rounded-lg"
-                                                            >
-                                                                <Map size={16} />
-                                                                <span>在 Google Maps 上查看 {activity.location}</span>
-                                                                <ExternalLink size={12} className="opacity-50 group-hover/link:opacity-100 transition-opacity" />
-                                                            </a>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div className={`flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 ${isEditing ? 'opacity-100' : ''}`}>
-                                                        <button onClick={() => setEditingActivity(activity.id)} className="p-2 text-gray-400 hover:text-[#CFB997] hover:bg-[#F5F0E6] rounded-lg transition-colors active:scale-95"><Edit3 size={18} /></button>
-                                                        <button onClick={() => deleteActivity(activeDayId, activity.id)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-50 rounded-lg transition-colors active:scale-95"><Trash2 size={18} /></button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* --- 連接線 --- */}
-                                    {nextActivity && (
-                                        <div className="absolute left-[29px] top-[70px] bottom-[-20px] w-0.5 bg-[#E0D8CE] flex flex-col items-center justify-center z-0">
-                                            <button 
-                                                onClick={() => openTransportModal(activeDayId, activity.id, activity.transport)}
-                                                className={`
-                                                    relative z-10 my-auto flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm transition-all hover:scale-110 active:scale-95
-                                                    ${hasTransport 
-                                                        ? 'bg-white border-[#D7CCC8] text-[#5D4037]' 
-                                                        : 'bg-[#FDFBF7] border-[#EFEBE0] text-[#D7CCC8] hover:border-[#CFB997] hover:text-[#CFB997]'}
-                                                `}
-                                                title="設定交通方式"
-                                            >
-                                                {hasTransport ? (
-                                                    <>
-                                                        <div className="text-[#8D6E63]">{transportInfo?.icon}</div>
-                                                        <span className="text-xs font-bold text-[#8D6E63]">{activity.transport.duration}</span>
-                                                        {(transportInfo.needCost && activity.transport.cost > 0) && (
-                                                            <span className="text-xs text-[#A1887F] bg-[#F5F0E6] px-1.5 rounded ml-1">
-                                                                ${activity.transport.cost}
-                                                            </span>
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Plus size={12} />
-                                                        <Footprints size={12} className="rotate-90 opacity-60" />
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    
-                        <div className="flex justify-center pt-8 relative z-10">
+                return (
+                    <div className="w-20 overflow-y-auto max-h-60 custom-scrollbar bg-[#FAFAFA] p-2">
+                        <div className="text-[10px] text-[#A1887F] mb-2 font-bold text-center sticky top-0 bg-[#FAFAFA] pb-1">分</div>
+                        <div className="grid grid-cols-1 gap-1">
+                        {minutes.map((m) => (
                             <button
-                                onClick={() => setShowAddModal(true)}
-                                className="flex items-center gap-2 px-8 py-3 bg-white border border-[#CFB997] text-[#CFB997] rounded-full shadow-sm hover:bg-[#CFB997] hover:text-white transition-all hover:scale-105 active:scale-95 font-bold group"
+                            key={m}
+                            onClick={() => handleMinuteChange(m)}
+                            className={`
+                                py-2 rounded text-sm font-medium transition-colors
+                                ${minute === m 
+                                ? 'bg-[#D7CCC8] text-[#5D4037] font-bold shadow-inner' 
+                                : 'text-[#5D4037] hover:bg-[#EFEBE0]'}
+                            `}
                             >
-                                <Plus size={18} className="group-hover:rotate-90 transition-transform" /> 加入下一個行程
+                            {m}
+                            </button>
+                        ))}
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="relative" ref={containerRef}>
+                    <button
+                        type="button"
+                        onClick={() => setIsOpen(!isOpen)}
+                        className={`
+                        flex items-center gap-2 w-full border rounded-xl px-4 py-3 bg-[#FAFAFA] text-[#5D4037] font-mono text-lg outline-none transition-all duration-300
+                        hover:shadow-sm
+                        ${isOpen ? 'ring-2 ring-[#CFB997] border-[#CFB997]' : 'border-[#E0E0E0] hover:border-[#D7CCC8]'}
+                        `}
+                    >
+                        <Clock size={18} className="text-[#CFB997]" />
+                        <span>{value}</span>
+                    </button>
+
+                    {isOpen && (
+                        <div className="absolute top-full left-0 mt-2 bg-white border border-[#EFEBE0] rounded-xl shadow-xl z-50 flex w-72 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-left">
+                        {renderHours()}
+                        {renderMinutes()}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // 輔助元件：簡單的 Subway Icon
+        function SubwayIcon({size, className}) {
+            return <div className={`flex items-center justify-center border-2 border-current rounded ${className}`} style={{width: size, height: size}}><span className="text-[10px] font-bold">M</span></div>
+        }
+
+        const TravelPlanner = () => {
+            // --- 圖標與風格庫 ---
+            const ICON_LIBRARY = [
+                { id: 'sightseeing', icon: <Camera size={24} />, label: '觀光', color: 'bg-[#CFB997] text-white' },
+                { id: 'food', icon: <Utensils size={24} />, label: '美食', color: 'bg-[#E6C9A8] text-[#5D4037]' },
+                { id: 'transport', icon: <Train size={24} />, label: '交通', color: 'bg-[#D7CCC8] text-[#5D4037]' },
+                { id: 'hotel', icon: <Bed size={24} />, label: '住宿', color: 'bg-[#DBC1AC] text-[#5D4037]' },
+                { id: 'coffee', icon: <Coffee size={24} />, label: '咖啡', color: 'bg-[#C8B7A6] text-white' },
+                { id: 'shopping', icon: <ShoppingBag size={24} />, label: '購物', color: 'bg-[#F2D7D5] text-[#922B21]' },
+                { id: 'entertainment', icon: <Music size={24} />, label: '娛樂', color: 'bg-[#D2B4DE] text-[#5B2C6F]' },
+                { id: 'flight', icon: <Plane size={24} />, label: '飛行', color: 'bg-[#B3E5FC] text-[#0277BD]' },
+                { id: 'ticket', icon: <Ticket size={24} />, label: '票券', color: 'bg-[#FFCCBC] text-[#D84315]' },
+                { id: 'gift', icon: <Gift size={24} />, label: '禮物', color: 'bg-[#F8BBD0] text-[#C2185B]' },
+                { id: 'date', icon: <Heart size={24} />, label: '約會', color: 'bg-[#FFCDD2] text-[#C62828]' },
+                { id: 'relax', icon: <Smile size={24} />, label: '放鬆', color: 'bg-[#DCEDC8] text-[#33691E]' },
+                { id: 'nature', icon: <Umbrella size={24} />, label: '自然', color: 'bg-[#C5E1A5] text-[#33691E]' },
+                { id: 'sea', icon: <Anchor size={24} />, label: '海邊', color: 'bg-[#B2EBF2] text-[#006064]' },
+                { id: 'activity', icon: <Bike size={24} />, label: '運動', color: 'bg-[#FFECB3] text-[#FF6F00]' },
+                { id: 'highlight', icon: <Zap size={24} />, label: '重點', color: 'bg-[#FFE082] text-[#FF6F00]' },
+                { id: 'culture', icon: <BookOpen size={24} />, label: '文化', color: 'bg-[#D1C4E9] text-[#4527A0]' },
+                { id: 'morning', icon: <Sun size={24} />, label: '早晨', color: 'bg-[#FFF9C4] text-[#FBC02D]' },
+                { id: 'night', icon: <Moon size={24} />, label: '夜晚', color: 'bg-[#37474F] text-[#ECEFF1]' },
+                { id: 'custom', icon: <Star size={24} />, label: '其他', color: 'bg-[#E0E0E0] text-[#616161]' },
+            ];
+
+            const TRANSPORT_OPTIONS = [
+                { id: 'train', label: '火車/高鐵', icon: <Train size={18} />, needCost: true },
+                { id: 'mrt', label: '捷運/地鐵', icon: <SubwayIcon size={18} />, needCost: true },
+                { id: 'bus', label: '公車/客運', icon: <Bus size={18} />, needCost: true },
+                { id: 'taxi', label: '計程車/Uber', icon: <Car size={18} />, needCost: true },
+                { id: 'car', label: '自行開車', icon: <Car size={18} />, needCost: false },
+                { id: 'bike', label: '騎車', icon: <Bike size={18} />, needCost: false },
+                { id: 'walk', label: '步行', icon: <Footprints size={18} />, needCost: false },
+                { id: 'flight', label: '飛機', icon: <Plane size={18} />, needCost: true },
+                { id: 'ship', label: '船運', icon: <Anchor size={18} />, needCost: true },
+            ];
+
+            // --- 初始數據 ---
+            const initialTripData = {
+                title: "台北輕旅行",
+                destination: "台灣, 台北",
+                startDate: "2024-05-20",
+                endDate: "2024-05-22",
+                days: [
+                {
+                    id: 1,
+                    date: "05/20 Day 1",
+                    label: "城市探索",
+                    activities: [
+                    { 
+                        id: 101, 
+                        time: "10:00", 
+                        type: "transport", 
+                        location: "台北火車站", 
+                        note: "抵達台北，前往飯店寄放行李", 
+                        cost: 0, 
+                        transport: { type: 'mrt', duration: '15分', cost: 25 }
+                    },
+                    { 
+                        id: 102, 
+                        time: "12:00", 
+                        type: "food", 
+                        location: "阜杭豆漿", 
+                        note: "必吃厚燒餅，排隊預計 30 分鐘", 
+                        cost: 150, 
+                        transport: { type: 'walk', duration: '10分', cost: 0 } 
+                    },
+                    ]
+                },
+                {
+                    id: 2,
+                    date: "05/21 Day 2",
+                    label: "歷史與夕陽",
+                    activities: [
+                    { id: 201, time: "09:30", type: "ticket", location: "國立故宮博物院", note: "參觀翠玉白菜，預計停留 3 小時", cost: 350 },
+                    ]
+                },
+                {
+                    id: 3,
+                    date: "05/22 Day 3",
+                    label: "準備返家",
+                    activities: []
+                }
+                ]
+            };
+
+            // --- State ---
+            const [trip, setTrip] = useState(initialTripData);
+            const [activeDayId, setActiveDayId] = useState(1);
+            const [isEditing, setIsEditing] = useState(false);
+            const [editingActivity, setEditingActivity] = useState(null);
+            const [editingDayTitle, setEditingDayTitle] = useState(false);
+            const [tempDayTitle, setTempDayTitle] = useState("");
+            
+            // Modals
+            const [showAddModal, setShowAddModal] = useState(false);
+            const [showTransportModal, setShowTransportModal] = useState(false);
+            const [showSettingsModal, setShowSettingsModal] = useState(false);
+            const [showMapModal, setShowMapModal] = useState(false); 
+            
+            // Forms
+            const [newActivityForm, setNewActivityForm] = useState({ 
+                time: "12:00", 
+                type: "sightseeing", 
+                location: "", 
+                note: "",
+                cost: "" 
+            });
+            
+            const [transportForm, setTransportForm] = useState({
+                dayId: null,
+                activityId: null,
+                type: 'train',
+                duration: '',
+                cost: ''
+            });
+
+            const [settingsForm, setSettingsForm] = useState({
+                title: "",
+                destination: "",
+                startDate: "",
+                endDate: ""
+            });
+
+            const [sidebarWidth, setSidebarWidth] = useState(320);
+            const [isResizing, setIsResizing] = useState(false);
+            const sidebarRef = useRef(null);
+
+            // --- Helper Functions ---
+            const getGoogleMapLink = (location) => {
+                return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+            };
+
+            const getIconData = (type) => {
+                return ICON_LIBRARY.find(item => item.id === type) || ICON_LIBRARY[ICON_LIBRARY.length - 1];
+            };
+
+            const getTransportOption = (type) => {
+                return TRANSPORT_OPTIONS.find(t => t.id === type) || TRANSPORT_OPTIONS[0];
+            };
+
+            const formatDateRange = (start, end) => {
+                if (!start) return "未設定日期";
+                return `${start.replace(/-/g, '/')} - ${end ? end.replace(/-/g, '/') : '?'}`;
+            };
+
+            const formatDateMMDD = (dateObj) => {
+                return `${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getDate().toString().padStart(2, '0')}`;
+            };
+
+            // --- Resizing Logic ---
+            const startResizing = (e) => {
+                e.preventDefault();
+                setIsResizing(true);
+            };
+
+            const stopResizing = () => {
+                setIsResizing(false);
+            };
+
+            const resize = (e) => {
+                if (isResizing) {
+                const newWidth = Math.max(250, Math.min(600, e.clientX));
+                setSidebarWidth(newWidth);
+                }
+            };
+
+            useEffect(() => {
+                window.addEventListener('mousemove', resize);
+                window.addEventListener('mouseup', stopResizing);
+                return () => {
+                window.removeEventListener('mousemove', resize);
+                window.removeEventListener('mouseup', stopResizing);
+                };
+            }, [isResizing]);
+
+            // --- CRUD Operations ---
+            
+            const deleteDay = (dayId) => {
+                if (trip.days.length === 0) return;
+                if (!window.confirm("確定要刪除這整天的行程嗎？(包含所有活動，刪除後無法復原)")) return;
+
+                const newDays = trip.days.filter(d => d.id !== dayId);
+                
+                const reindexedDays = newDays.map((day, index) => {
+                    const datePart = day.date.split(' ')[0];
+                    return {
+                    ...day,
+                    date: `${datePart} Day ${index + 1}`
+                    };
+                });
+
+                setTrip(prev => ({ ...prev, days: reindexedDays }));
+                
+                if (reindexedDays.length === 0) {
+                    setActiveDayId(null);
+                } else {
+                    setActiveDayId(reindexedDays[0].id);
+                }
+            };
+
+            const saveDayTitle = () => {
+                const updatedDays = trip.days.map(d => 
+                    d.id === activeDayId ? { ...d, label: tempDayTitle } : d
+                );
+                setTrip({ ...trip, days: updatedDays });
+                setEditingDayTitle(false);
+            };
+
+            const deleteActivity = (dayId, actId) => {
+                const updatedDays = trip.days.map(day => {
+                if (day.id === dayId) {
+                    return { ...day, activities: day.activities.filter(a => a.id !== actId) };
+                }
+                return day;
+                });
+                setTrip({ ...trip, days: updatedDays });
+            };
+
+            const saveActivityEdit = (dayId, actId, newData) => {
+                const updatedDays = trip.days.map(day => {
+                if (day.id === dayId) {
+                    return {
+                    ...day,
+                    activities: day.activities.map(act => act.id === actId ? { ...act, ...newData } : act)
+                    };
+                }
+                return day;
+                });
+                setTrip({ ...trip, days: updatedDays });
+                setEditingActivity(null);
+            };
+
+            const saveTransport = () => {
+                const { dayId, activityId, type, duration, cost } = transportForm;
+                const transportData = { type, duration, cost };
+                
+                const option = getTransportOption(type);
+                if (!option.needCost) {
+                    transportData.cost = 0;
+                }
+
+                const updatedDays = trip.days.map(day => {
+                if (day.id === dayId) {
+                    return {
+                    ...day,
+                    activities: day.activities.map(act => act.id === activityId ? { ...act, transport: transportData } : act)
+                    };
+                }
+                return day;
+                });
+
+                setTrip({ ...trip, days: updatedDays });
+                setShowTransportModal(false);
+            };
+
+            const openTransportModal = (dayId, activityId, currentTransport) => {
+                setTransportForm({
+                    dayId,
+                    activityId,
+                    type: currentTransport?.type || 'train',
+                    duration: currentTransport?.duration || '',
+                    cost: currentTransport?.cost || ''
+                });
+                setShowTransportModal(true);
+            };
+
+            const openSettingsModal = () => {
+                setSettingsForm({
+                    title: trip.title,
+                    destination: trip.destination,
+                    startDate: trip.startDate,
+                    endDate: trip.endDate
+                });
+                setShowSettingsModal(true);
+            };
+
+            const saveSettings = () => {
+                const { title, destination, startDate, endDate } = settingsForm;
+                
+                let newDays = [...trip.days];
+
+                if (startDate && endDate) {
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    const diffTime = Math.abs(end - start);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+
+                    if (!isNaN(diffDays) && diffDays > 0) {
+                        const generatedDays = [];
+                        for (let i = 0; i < diffDays; i++) {
+                            const currentDate = new Date(start);
+                            currentDate.setDate(start.getDate() + i);
+                            const dateStr = formatDateMMDD(currentDate); 
+                            const displayDate = `${dateStr} Day ${i + 1}`;
+
+                            const existingDay = trip.days[i];
+                            
+                            if (existingDay) {
+                                generatedDays.push({
+                                    ...existingDay,
+                                    date: displayDate, 
+                                });
+                            } else {
+                                generatedDays.push({
+                                    id: Date.now() + i, 
+                                    date: displayDate,
+                                    label: "自由活動",
+                                    activities: []
+                                });
+                            }
+                        }
+                        newDays = generatedDays;
+                    }
+                }
+
+                setTrip({
+                    ...trip,
+                    title,
+                    destination,
+                    startDate,
+                    endDate,
+                    days: newDays
+                });
+                
+                if(newDays.length > 0) {
+                    if (!newDays.find(d => d.id === activeDayId)) {
+                        setActiveDayId(newDays[0].id);
+                    }
+                } else {
+                    setActiveDayId(null);
+                }
+
+                setShowSettingsModal(false);
+            };
+
+            const handleAddActivity = () => {
+                if (!newActivityForm.location) return;
+                
+                const newAct = {
+                id: Date.now(),
+                ...newActivityForm,
+                completed: false
+                };
+
+                const updatedDays = trip.days.map(day => {
+                if (day.id === activeDayId) {
+                    const newActivities = [...day.activities, newAct].sort((a, b) => a.time.localeCompare(b.time));
+                    return { ...day, activities: newActivities };
+                }
+                return day;
+                });
+
+                setTrip({ ...trip, days: updatedDays });
+                setShowAddModal(false);
+                setNewActivityForm({ 
+                    time: "12:00", 
+                    type: "sightseeing", 
+                    location: "", 
+                    note: "",
+                    cost: ""
+                });
+            };
+
+            const handleAddDay = () => {
+                const newDayId = Date.now();
+                const dayCount = trip.days.length + 1;
+                let dateStr = "";
+                if (trip.startDate) {
+                    const start = new Date(trip.startDate);
+                    if (!isNaN(start)) {
+                        const nextDate = new Date(start);
+                        nextDate.setDate(start.getDate() + dayCount - 1);
+                        dateStr = formatDateMMDD(nextDate);
+                    }
+                }
+                
+                const newDay = {
+                id: newDayId,
+                date: `${dateStr} Day ${dayCount}`,
+                label: "新的一天",
+                activities: []
+                };
+                setTrip({ ...trip, days: [...trip.days, newDay] });
+                setActiveDayId(newDayId);
+            };
+
+            const generateMapRouteLink = () => {
+                const allLocations = trip.days.flatMap(day => day.activities.map(act => act.location)).filter(loc => loc && loc.trim() !== "");
+                if (allLocations.length === 0) return "https://www.google.com/maps";
+                const path = allLocations.map(loc => encodeURIComponent(loc)).join('/');
+                return `https://www.google.com/maps/dir/${path}`;
+            };
+
+            const activeDayData = trip.days.find(d => d.id === activeDayId);
+
+            return (
+                <div className="flex h-screen bg-[#FDFBF7] text-[#5D4037] font-sans selection:bg-[#CFB997] selection:text-white overflow-hidden">
+                
+                {/* --- Sidebar --- */}
+                <aside 
+                    ref={sidebarRef}
+                    style={{ width: sidebarWidth }}
+                    className="flex-shrink-0 bg-[#F5F0E6] flex flex-col border-r border-[#EFEBE0] shadow-[4px_0_24px_rgba(93,64,55,0.03)] z-20 relative transition-width duration-75 ease-linear"
+                >
+                    {/* 旅行資訊 */}
+                    <div className="p-8 pb-4 animate-in fade-in slide-in-from-left-4 duration-700 group">
+                    <div className="flex items-center gap-2 mb-2 opacity-60 text-xs tracking-widest uppercase font-bold text-[#8D6E63]">
+                        <MapPin size={12} />
+                        {trip.destination}
+                    </div>
+                    <h1 className="text-3xl font-bold text-[#5D4037] mb-4 leading-tight">{trip.title}</h1>
+                    
+                    {/* 日期與設定按鈕 */}
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 text-sm text-[#8D6E63] bg-[#EFEBE0] py-2 px-3 rounded-lg inline-flex">
+                            <Calendar size={14} />
+                            <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
+                        </div>
+                        <button 
+                            onClick={openSettingsModal}
+                            className="p-2 bg-white rounded-lg shadow-sm text-[#CFB997] hover:bg-[#CFB997] hover:text-white transition-all hover:rotate-90 duration-300"
+                            title="旅程設定"
+                        >
+                            <Settings size={16} />
+                        </button>
+                        
+                        {/* 地圖按鈕 */}
+                        <button 
+                            onClick={() => setShowMapModal(true)}
+                            className="p-2 bg-white rounded-lg shadow-sm text-[#CFB997] hover:bg-[#CFB997] hover:text-white transition-all hover:scale-110 duration-300"
+                            title="檢視路線地圖"
+                        >
+                            <MapIcon size={16} />
+                        </button>
+                    </div>
+                    </div>
+
+                    {/* 天數導航 */}
+                    <nav className="flex-1 overflow-y-auto px-6 py-4 space-y-3 scrollbar-hide">
+                    <div className="flex justify-between items-center mb-2 px-2">
+                        <div className="text-xs font-bold text-[#A1887F] uppercase tracking-wider">Itinerary</div>
+                    </div>
+                    
+                    {trip.days.map((day, idx) => (
+                        <div 
+                        key={day.id}
+                        className="relative group/item animate-in fade-in slide-in-from-left-8 duration-500 fill-mode-backwards"
+                        style={{ animationDelay: `${idx * 100}ms` }}
+                        >
+                            <button
+                            onClick={() => setActiveDayId(day.id)}
+                            className={`
+                                w-full text-left px-5 py-4 rounded-xl transition-all duration-300 relative overflow-hidden group/btn
+                                ${activeDayId === day.id 
+                                ? 'bg-white shadow-md border border-[#EFEBE0] translate-x-2' 
+                                : 'hover:bg-[#EFEBE0] hover:translate-x-1 border border-transparent'}
+                            `}
+                            >
+                            <div className="flex items-center justify-between relative z-10">
+                                <div>
+                                <div className={`text-xs font-bold mb-1 transition-colors ${activeDayId === day.id ? 'text-[#CFB997]' : 'text-[#A1887F]'}`}>
+                                    {day.date}
+                                </div>
+                                <div className="font-bold text-lg text-[#5D4037] truncate w-32">{day.label}</div>
+                                </div>
+                                {activeDayId === day.id && <div className="h-2 w-2 rounded-full bg-[#CFB997] animate-pulse" />}
+                            </div>
+                            </button>
+                        </div>
+                    ))}
+
+                    {trip.days.length === 0 && (
+                        <div className="text-center py-8 text-[#A1887F] text-sm italic">
+                            行程表是空的...
+                        </div>
+                    )}
+                    
+                    <button 
+                        onClick={handleAddDay}
+                        className="w-full py-3 mt-4 border-2 border-dashed border-[#D7CCC8] rounded-xl text-[#A1887F] hover:border-[#CFB997] hover:text-[#CFB997] hover:bg-white/50 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm font-bold"
+                    >
+                        <Plus size={16} /> 新增天數
+                    </button>
+                    </nav>
+
+                    {/* 底部功能 */}
+                    <div className="p-6 border-t border-[#E0D8CE] bg-[#F0EAE0]">
+                        <div className="flex gap-3">
+                            <button className="flex-1 py-3 bg-[#CFB997] text-white rounded-lg hover:bg-[#BCAAA4] transition-all hover:-translate-y-0.5 font-bold shadow-sm flex items-center justify-center gap-2 active:scale-95">
+                                <Share2 size={18} /> 分享
+                            </button>
+                            <button 
+                                onClick={() => setIsEditing(!isEditing)}
+                                className={`px-4 rounded-lg border border-[#D7CCC8] transition-colors flex items-center justify-center active:scale-95 ${isEditing ? 'bg-[#5D4037] text-white' : 'bg-white text-[#5D4037] hover:bg-[#FAF9F6]'}`}
+                                title="編輯模式"
+                            >
+                                <Edit3 size={18} />
                             </button>
                         </div>
                     </div>
-                )}
-             </>
-          )}
-        </div>
-      </main>
+                </aside>
 
-      {/* --- Add Activity Modal --- */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-[#5D4037]/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl p-0 animate-in fade-in zoom-in duration-300 border border-[#EFEBE0] overflow-hidden flex flex-col max-h-[90vh]">
-            
-            <div className="px-8 py-6 border-b border-[#FAFAFA] flex justify-between items-center bg-white sticky top-0 z-10">
-              <h3 className="text-2xl font-bold text-[#5D4037]">新增行程</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors bg-[#FAFAFA] p-2 rounded-full hover:bg-[#F5F0E6]">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="p-8 overflow-y-auto custom-scrollbar">
-                <div className="space-y-6">
-                    <div>
-                        <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">時間</label>
-                        {/* 使用全新的時間選擇器 */}
-                        <CustomTimePicker 
-                            value={newActivityForm.time} 
-                            onChange={(val) => setNewActivityForm({...newActivityForm, time: val})} 
-                        />
-                    </div>
-                    <div>
-                         <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-3">選擇一張貼紙 (代表行程類型)</label>
-                         <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 max-h-56 overflow-y-auto p-1">
-                            {ICON_LIBRARY.map((item) => (
-                                <button key={item.id} onClick={() => setNewActivityForm({...newActivityForm, type: item.id})} className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-200 gap-2 aspect-square active:scale-95 ${newActivityForm.type === item.id ? 'bg-[#F5F0E6] border-[#CFB997] ring-4 ring-[#CFB997]/20 scale-105 shadow-md' : 'bg-white border-[#EFEBE0] hover:border-[#D7CCC8] hover:bg-[#FAFAFA] opacity-70 hover:opacity-100'}`}>
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.color}`}>{item.icon}</div>
-                                    <span className="text-[10px] font-bold text-[#8D6E63]">{item.label}</span>
-                                </button>
-                            ))}
-                         </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">地點 / 行程名稱</label>
-                        <div className="relative">
-                            <input type="text" placeholder="例如: 台北火車站" value={newActivityForm.location} onChange={(e) => setNewActivityForm({...newActivityForm, location: e.target.value})} className="w-full border border-[#E0E0E0] rounded-xl px-4 py-4 pl-12 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none font-bold text-[#5D4037] text-lg placeholder:font-normal placeholder:text-gray-400" />
-                            <MapPin size={20} className="absolute left-4 top-4.5 text-[#CFB997]" />
-                        </div>
-                    </div>
-                    
-                    {/* 新增費用欄位 */}
-                    <div>
-                        <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">門票 / 費用 (選填)</label>
-                        <div className="relative">
-                            <input 
-                                type="number" 
-                                placeholder="0 (若不需門票則免填)" 
-                                value={newActivityForm.cost} 
-                                onChange={(e) => setNewActivityForm({...newActivityForm, cost: e.target.value})} 
-                                className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 pl-12 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none text-[#5D4037]" 
-                            />
-                            <Banknote size={20} className="absolute left-4 top-3.5 text-[#CFB997]" />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">備註</label>
-                        <textarea placeholder="例如: 北車大廳集合，記得買台鐵便當..." rows="2" value={newActivityForm.note} onChange={(e) => setNewActivityForm({...newActivityForm, note: e.target.value})} className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none resize-none text-sm" />
-                    </div>
-                </div>
-            </div>
-
-            <div className="p-6 border-t border-[#FAFAFA] bg-white sticky bottom-0 z-10">
-                <button onClick={handleAddActivity} className="w-full bg-[#CFB997] text-white py-4 rounded-xl font-bold hover:bg-[#BCAAA4] transition-all shadow-md hover:shadow-lg flex justify-center items-center gap-2 text-lg active:scale-95">
-                    <Plus size={24} /> 加入行程
-                </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- Transport Edit Modal --- */}
-      {showTransportModal && (
-        <div className="fixed inset-0 bg-[#5D4037]/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 animate-in fade-in zoom-in duration-200">
-             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-[#5D4037]">點到點交通</h3>
-                <button onClick={() => setShowTransportModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-             </div>
-
-             <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-2">
-                    {TRANSPORT_OPTIONS.map(opt => (
-                        <button
-                            key={opt.id}
-                            onClick={() => setTransportForm({...transportForm, type: opt.id})}
-                            className={`
-                                flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1 transition-all active:scale-95
-                                ${transportForm.type === opt.id 
-                                    ? 'bg-[#5D4037] text-white border-[#5D4037]' 
-                                    : 'bg-white text-[#8D6E63] border-[#EFEBE0] hover:bg-[#F5F0E6]'}
-                            `}
-                        >
-                            {opt.icon}
-                            {opt.label}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs font-bold text-[#8D6E63] mb-1 flex items-center gap-1">
-                            <Timer size={12} /> 預估時間
-                        </label>
-                        <input 
-                            type="text" 
-                            placeholder="如: 30分"
-                            value={transportForm.duration}
-                            onChange={(e) => setTransportForm({...transportForm, duration: e.target.value})}
-                            className="w-full border border-[#E0E0E0] rounded-lg p-2 bg-[#FAFAFA] focus:outline-none focus:border-[#CFB997]"
-                        />
-                    </div>
-                    
-                    <div>
-                        <label className={`text-xs font-bold text-[#8D6E63] mb-1 flex items-center gap-1 ${!getTransportOption(transportForm.type).needCost && 'opacity-30'}`}>
-                            <Banknote size={12} /> 票價/車資
-                        </label>
-                        <input 
-                            type="number" 
-                            placeholder="0"
-                            value={transportForm.cost}
-                            onChange={(e) => setTransportForm({...transportForm, cost: e.target.value})}
-                            disabled={!getTransportOption(transportForm.type).needCost}
-                            className={`w-full border border-[#E0E0E0] rounded-lg p-2 bg-[#FAFAFA] focus:outline-none focus:border-[#CFB997] ${!getTransportOption(transportForm.type).needCost && 'bg-gray-100 cursor-not-allowed opacity-50'}`}
-                        />
-                    </div>
-                </div>
-                
-                {!getTransportOption(transportForm.type).needCost && (
-                    <p className="text-xs text-[#A1887F] text-center bg-[#F5F0E6] py-1 rounded">
-                        * 選擇 {getTransportOption(transportForm.type).label}，系統將自動忽略費用
-                    </p>
-                )}
-
-                <button 
-                    onClick={saveTransport}
-                    className="w-full bg-[#CFB997] text-white py-2.5 rounded-xl font-bold hover:bg-[#BCAAA4] mt-2 active:scale-95 transition-transform"
+                {/* --- Resizer --- */}
+                <div
+                    className="w-4 bg-[#FDFBF7] hover:bg-[#EFEBE0] cursor-col-resize flex items-center justify-center z-30 transition-colors group relative -ml-2"
+                    onMouseDown={startResizing}
                 >
-                    儲存設定
-                </button>
-             </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- Settings Modal --- */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 bg-[#5D4037]/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200 border border-[#EFEBE0]">
-                <div className="flex justify-between items-center mb-6 border-b border-[#FAFAFA] pb-4">
-                    <h3 className="text-xl font-bold text-[#5D4037]">旅程設定</h3>
-                    <button onClick={() => setShowSettingsModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors bg-[#FAFAFA] p-2 rounded-full hover:bg-[#F5F0E6]">
-                        <X size={20} />
-                    </button>
+                    <div className="w-[1px] h-8 bg-[#D7CCC8] group-hover:bg-[#8D6E63]"></div>
+                    <div className="absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-[#5D4037] text-white text-[10px] px-1 py-0.5 rounded pointer-events-none whitespace-nowrap shadow-sm">
+                        拖曳調整
+                    </div>
                 </div>
 
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">旅程標題</label>
-                        <input 
-                            type="text" 
-                            value={settingsForm.title}
-                            onChange={(e) => setSettingsForm({...settingsForm, title: e.target.value})}
-                            className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none text-[#5D4037] font-bold"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">目的地</label>
-                        <input 
-                            type="text" 
-                            value={settingsForm.destination}
-                            onChange={(e) => setSettingsForm({...settingsForm, destination: e.target.value})}
-                            className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none text-[#5D4037]"
-                        />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">出發日期</label>
-                            <input 
-                                type="date" 
-                                value={settingsForm.startDate}
-                                onChange={(e) => setSettingsForm({...settingsForm, startDate: e.target.value})}
-                                className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none text-[#5D4037]"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">返家日期</label>
-                            <input 
-                                type="date" 
-                                value={settingsForm.endDate}
-                                onChange={(e) => setSettingsForm({...settingsForm, endDate: e.target.value})}
-                                className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none text-[#5D4037]"
-                            />
-                        </div>
-                    </div>
-                    
-                    <div className="bg-[#FFF8E1] p-3 rounded-lg text-xs text-[#8D6E63] leading-relaxed">
-                        <span className="font-bold block mb-1">💡 小提示：</span>
-                        修改日期後，系統會自動幫您增減天數，並重新計算每天的日期標籤喔！
-                    </div>
+                {/* --- Main Content --- */}
+                <main className="flex-1 overflow-y-auto relative bg-dots-pattern">
+                    <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#5D4037 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
 
-                    <button 
-                        onClick={saveSettings}
-                        className="w-full bg-[#CFB997] text-white py-3 rounded-xl font-bold hover:bg-[#BCAAA4] transition-all shadow-md mt-4 active:scale-95"
+                    <div 
+                        key={activeDayId} 
+                        className="max-w-4xl mx-auto px-12 py-16 animate-in fade-in slide-in-from-bottom-8 duration-500 ease-out"
                     >
-                        儲存並更新行程表
-                    </button>
+                    
+                    {trip.days.length === 0 || !activeDayData ? (
+                        <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in zoom-in duration-500">
+                            <div className="p-8 rounded-full bg-[#F5F0E6] mb-6 animate-pulse">
+                                <Calendar size={48} className="text-[#8D6E63]" />
+                            </div>
+                            <h2 className="text-3xl font-bold text-[#5D4037] mb-4">重新開始規劃</h2>
+                            <p className="text-[#8D6E63] mb-8">目前的行程表空空如也，新增第一天來開始吧！</p>
+                            <button 
+                                onClick={handleAddDay}
+                                className="px-8 py-4 bg-[#CFB997] text-white rounded-full shadow-lg hover:bg-[#BCAAA4] transition-all hover:scale-105 active:scale-95 font-bold text-lg flex items-center gap-2"
+                            >
+                                <Plus size={24} /> 建立第一天行程
+                            </button>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="mb-12 flex items-end justify-between border-b border-[#EFEBE0] pb-6">
+                                <div className="flex-1">
+                                    <span className="text-[#CFB997] font-bold text-lg block mb-1 animate-in fade-in duration-700">{activeDayData?.date}</span>
+                                    
+                                    {editingDayTitle ? (
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="text" 
+                                                autoFocus
+                                                value={tempDayTitle}
+                                                onChange={(e) => setTempDayTitle(e.target.value)}
+                                                className="text-4xl font-bold text-[#5D4037] bg-transparent border-b-2 border-[#CFB997] focus:outline-none w-full max-w-md"
+                                                onKeyDown={(e) => e.key === 'Enter' && saveDayTitle()}
+                                            />
+                                            <button onClick={saveDayTitle} className="p-2 bg-[#CFB997] text-white rounded-full hover:bg-[#BCAAA4] animate-in zoom-in">
+                                                <Save size={20} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <h2 
+                                            className="text-4xl font-bold text-[#5D4037] cursor-pointer hover:text-[#8D6E63] group flex items-center gap-3 transition-colors duration-300"
+                                            onClick={() => {
+                                                setTempDayTitle(activeDayData?.label);
+                                                setEditingDayTitle(true);
+                                            }}
+                                            title="點擊修改標題"
+                                        >
+                                            {activeDayData?.label}
+                                            <Edit3 size={24} className="opacity-0 group-hover:opacity-30 transition-opacity text-[#CFB997] duration-300" />
+                                        </h2>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col items-end gap-2">
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            deleteDay(activeDayData.id);
+                                        }}
+                                        className="flex items-center gap-1 text-red-300 hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors text-sm border border-transparent hover:border-red-100 active:scale-95"
+                                    >
+                                        <Trash2 size={16} /> 刪除這一天
+                                    </button>
+                                    <div className="text-[#A1887F] text-sm">
+                                        {activeDayData?.activities.length} 個行程
+                                    </div>
+                                </div>
+                            </div>
+
+                            {activeDayData.activities.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-32 border-2 border-dashed border-[#EFEBE0] rounded-3xl bg-white/50 animate-in fade-in zoom-in duration-500">
+                                <Coffee size={64} className="mb-6 text-[#D7CCC8]" />
+                                <p className="text-xl text-[#8D6E63] font-medium mb-2">這一天還是一張白紙</p>
+                                <p className="text-[#A1887F] mb-8">點擊標題可以修改這天的名稱喔！</p>
+                                <button 
+                                    onClick={() => setShowAddModal(true)}
+                                    className="px-8 py-3 bg-[#CFB997] text-white rounded-full shadow-lg hover:bg-[#BCAAA4] hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-2 font-bold active:scale-95"
+                                >
+                                    <Plus size={20} /> 新增第一個行程
+                                </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-0 relative pl-4 pb-20">
+
+                                    {activeDayData.activities.map((activity, index) => {
+                                        const iconData = getIconData(activity.type);
+                                        const nextActivity = activeDayData.activities[index + 1];
+                                        const hasTransport = !!activity.transport;
+                                        const transportInfo = activity.transport ? getTransportOption(activity.transport.type) : null;
+                                        const hasCost = activity.cost && Number(activity.cost) > 0;
+                                        
+                                        return (
+                                            <div 
+                                                key={activity.id} 
+                                                className="relative animate-in slide-in-from-bottom-4 duration-700 fill-mode-backwards"
+                                                style={{ animationDelay: `${index * 150}ms` }}
+                                            >
+                                                <div className="flex gap-8 group relative z-10">
+                                                    <div className="flex flex-col items-center min-w-[60px] pt-2 relative">
+                                                        <div className={`
+                                                            w-14 h-14 rounded-2xl rotate-3 flex items-center justify-center shadow-md border-[3px] border-[#FDFBF7] transition-all duration-300 group-hover:rotate-0 group-hover:scale-110 group-hover:shadow-lg
+                                                            ${iconData.color}
+                                                        `}>
+                                                            {iconData.icon}
+                                                        </div>
+                                                        <span className="mt-2 text-sm font-bold text-[#8D6E63] font-mono bg-[#FDFBF7] px-2 py-0.5 rounded-md border border-[#EFEBE0] shadow-sm">
+                                                            {activity.time}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex-1 bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(93,64,55,0.05)] border border-[#EFEBE0] group-hover:border-[#CFB997]/50 group-hover:shadow-[0_8px_30px_rgba(93,64,55,0.08)] transition-all duration-300 relative overflow-hidden mb-8 transform hover:-translate-y-1 hover:shadow-lg">
+                                                        <div className="absolute top-0 left-0 w-1 h-full bg-[#EFEBE0] group-hover:bg-[#CFB997] transition-colors duration-300"></div>
+
+                                                        {editingActivity === activity.id ? (
+                                                            <div className="pl-4 space-y-4">
+                                                                <div className="flex gap-4">
+                                                                    <div className="w-1/3">
+                                                                    <CustomTimePicker 
+                                                                        value={activity.time} 
+                                                                        onChange={(val) => {
+                                                                            const input = document.getElementById(`edit-time-${activity.id}`);
+                                                                            if(input) input.value = val;
+                                                                        }} 
+                                                                    />
+                                                                    <input type="hidden" defaultValue={activity.time} id={`edit-time-${activity.id}`} />
+                                                                    </div>
+                                                                    <input type="text" defaultValue={activity.location} id={`edit-loc-${activity.id}`} className="flex-1 bg-[#FAFAFA] border border-[#E0E0E0] rounded-xl p-3 font-bold text-[#5D4037]" />
+                                                                </div>
+                                                                
+                                                                <div>
+                                                                    <label className="text-xs text-[#A1887F] mb-1 block">門票/費用 (0為免費)</label>
+                                                                    <div className="relative">
+                                                                        <Banknote size={14} className="absolute left-3 top-2.5 text-[#CFB997]" />
+                                                                        <input 
+                                                                            type="number" 
+                                                                            defaultValue={activity.cost} 
+                                                                            id={`edit-cost-${activity.id}`} 
+                                                                            placeholder="0"
+                                                                            className="w-full bg-[#FAFAFA] border border-[#E0E0E0] rounded p-2 pl-9 text-sm" 
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                <textarea defaultValue={activity.note} id={`edit-note-${activity.id}`} className="w-full bg-[#FAFAFA] border border-[#E0E0E0] rounded p-2 text-sm resize-none h-20" />
+                                                                <div className="flex justify-end gap-2 pt-2">
+                                                                    <button onClick={() => setEditingActivity(null)} className="px-3 py-1 text-sm text-gray-400 hover:text-gray-600">取消</button>
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            const timeInput = document.getElementById(`edit-time-${activity.id}`);
+                                                                            const time = timeInput.value; 
+                                                                            const location = document.getElementById(`edit-loc-${activity.id}`).value;
+                                                                            const note = document.getElementById(`edit-note-${activity.id}`).value;
+                                                                            const cost = document.getElementById(`edit-cost-${activity.id}`).value;
+                                                                            saveActivityEdit(activeDayId, activity.id, { time, location, note, cost });
+                                                                        }}
+                                                                        className="px-4 py-1 text-sm bg-[#CFB997] text-white rounded hover:bg-[#BCAAA4]"
+                                                                    >
+                                                                        <Save size={14} /> 儲存
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="pl-4 flex justify-between items-start gap-6">
+                                                                <div className="flex-1">
+                                                                    <div className="flex items-center gap-2 mb-2">
+                                                                        <span className="text-[10px] uppercase tracking-wider font-bold text-[#A1887F] bg-[#F5F0E6] px-2 py-0.5 rounded transition-colors group-hover:bg-[#EFEBE0]">
+                                                                            {iconData.label}
+                                                                        </span>
+                                                                        {hasCost ? (
+                                                                            <span className="text-[10px] font-bold text-[#5D4037] bg-[#FFF3E0] px-2 py-0.5 rounded border border-[#FFE0B2] flex items-center gap-1">
+                                                                                <Banknote size={10} /> ${activity.cost}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-[10px] font-bold text-[#689F38] bg-[#F1F8E9] px-2 py-0.5 rounded border border-[#DCEDC8]">
+                                                                                免費 / 免票
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <h3 className="text-2xl font-bold text-[#5D4037] mb-2">{activity.location}</h3>
+                                                                    <p className="text-[#8D6E63] leading-relaxed whitespace-pre-line">{activity.note}</p>
+                                                                    
+                                                                    <div className="mt-4 pt-4 border-t border-[#FAFAFA] flex items-center">
+                                                                        <a 
+                                                                            href={getGoogleMapLink(activity.location)}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="inline-flex items-center gap-2 text-sm font-medium text-[#CFB997] hover:text-[#8D6E63] transition-colors group/link bg-[#FAFAFA] hover:bg-[#F5F0E6] px-3 py-1.5 rounded-lg"
+                                                                        >
+                                                                            <MapIcon size={16} />
+                                                                            <span>在 Google Maps 上查看 {activity.location}</span>
+                                                                            <ExternalLink size={12} className="opacity-50 group-hover/link:opacity-100 transition-opacity" />
+                                                                        </a>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <div className={`flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 ${isEditing ? 'opacity-100' : ''}`}>
+                                                                    <button onClick={() => setEditingActivity(activity.id)} className="p-2 text-gray-400 hover:text-[#CFB997] hover:bg-[#F5F0E6] rounded-lg transition-colors active:scale-95"><Edit3 size={18} /></button>
+                                                                    <button onClick={() => deleteActivity(activeDayId, activity.id)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-50 rounded-lg transition-colors active:scale-95"><Trash2 size={18} /></button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {nextActivity && (
+                                                    <div className="absolute left-[29px] top-[70px] bottom-[-20px] w-0.5 bg-[#E0D8CE] flex flex-col items-center justify-center z-0">
+                                                        <button 
+                                                            onClick={() => openTransportModal(activeDayId, activity.id, activity.transport)}
+                                                            className={`
+                                                                relative z-10 my-auto flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm transition-all hover:scale-110 active:scale-95
+                                                                ${hasTransport 
+                                                                    ? 'bg-white border-[#D7CCC8] text-[#5D4037]' 
+                                                                    : 'bg-[#FDFBF7] border-[#EFEBE0] text-[#D7CCC8] hover:border-[#CFB997] hover:text-[#CFB997]'}
+                                                            `}
+                                                            title="設定交通方式"
+                                                        >
+                                                            {hasTransport ? (
+                                                                <>
+                                                                    <div className="text-[#8D6E63]">{transportInfo?.icon}</div>
+                                                                    <span className="text-xs font-bold text-[#8D6E63]">{activity.transport.duration}</span>
+                                                                    {(transportInfo.needCost && activity.transport.cost > 0) && (
+                                                                        <span className="text-xs text-[#A1887F] bg-[#F5F0E6] px-1.5 rounded ml-1">
+                                                                            ${activity.transport.cost}
+                                                                        </span>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Plus size={12} />
+                                                                    <Footprints size={12} className="rotate-90 opacity-60" />
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                
+                                    <div className="flex justify-center pt-8 relative z-10">
+                                        <button
+                                            onClick={() => setShowAddModal(true)}
+                                            className="flex items-center gap-2 px-8 py-3 bg-white border border-[#CFB997] text-[#CFB997] rounded-full shadow-sm hover:bg-[#CFB997] hover:text-white transition-all hover:scale-105 active:scale-95 font-bold group"
+                                        >
+                                            <Plus size={18} className="group-hover:rotate-90 transition-transform" /> 加入下一個行程
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+                    </div>
+                </main>
+
+                {/* --- Map Route Modal --- */}
+                {showMapModal && (
+                    <div className="fixed inset-0 bg-[#5D4037]/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-0 animate-in fade-in zoom-in duration-200 border border-[#EFEBE0] overflow-hidden">
+                            <div className="bg-[#F5F0E6] px-6 py-4 flex justify-between items-center border-b border-[#EFEBE0]">
+                                <div className="flex items-center gap-2 text-[#5D4037]">
+                                    <MapIcon size={20} />
+                                    <h3 className="text-xl font-bold">路線預覽</h3>
+                                </div>
+                                <button onClick={() => setShowMapModal(false)} className="text-gray-400 hover:text-[#5D4037]">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            
+                            <div className="p-6">
+                                <p className="text-sm text-[#8D6E63] mb-4 leading-relaxed">
+                                    系統將自動彙整您這趟旅程中所有的景點與活動，並生成一條最佳化的路線圖。
+                                </p>
+                                
+                                <div className="bg-[#FAFAFA] rounded-xl p-4 border border-[#E0E0E0] max-h-48 overflow-y-auto custom-scrollbar mb-6">
+                                    <h4 className="text-xs font-bold text-[#A1887F] mb-2 uppercase">途經地點清單</h4>
+                                    <div className="space-y-2">
+                                        {trip.days.flatMap(day => day.activities).length > 0 ? (
+                                            trip.days.flatMap(day => day.activities.map(act => act.location)).filter(l => l).map((loc, idx) => (
+                                                <div key={idx} className="flex items-center gap-2 text-sm text-[#5D4037]">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-[#CFB997]"></div>
+                                                    {loc}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="text-sm text-gray-400 italic">目前還沒有任何行程地點...</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <a 
+                                    href={generateMapRouteLink()} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="w-full bg-[#4285F4] text-white py-3 rounded-xl font-bold hover:bg-[#3367D6] transition-all shadow-md flex items-center justify-center gap-2 active:scale-95"
+                                >
+                                    <Navigation size={18} />
+                                    在 Google Maps 上開啟完整路線
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- Add Activity Modal --- */}
+                {showAddModal && (
+                    <div className="fixed inset-0 bg-[#5D4037]/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl p-0 animate-in fade-in zoom-in duration-300 border border-[#EFEBE0] overflow-hidden flex flex-col max-h-[90vh]">
+                        
+                        <div className="px-8 py-6 border-b border-[#FAFAFA] flex justify-between items-center bg-white sticky top-0 z-10">
+                        <h3 className="text-2xl font-bold text-[#5D4037]">新增行程</h3>
+                        <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors bg-[#FAFAFA] p-2 rounded-full hover:bg-[#F5F0E6]">
+                            <X size={20} />
+                        </button>
+                        </div>
+                        
+                        <div className="p-8 overflow-y-auto custom-scrollbar">
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">時間</label>
+                                    {/* 使用全新的時間選擇器 */}
+                                    <CustomTimePicker 
+                                        value={newActivityForm.time} 
+                                        onChange={(val) => setNewActivityForm({...newActivityForm, time: val})} 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">選擇一張貼紙 (代表行程類型)</label>
+                                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 max-h-56 overflow-y-auto p-1">
+                                        {ICON_LIBRARY.map((item) => (
+                                            <button key={item.id} onClick={() => setNewActivityForm({...newActivityForm, type: item.id})} className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-200 gap-2 aspect-square active:scale-95 ${newActivityForm.type === item.id ? 'bg-[#F5F0E6] border-[#CFB997] ring-4 ring-[#CFB997]/20 scale-105 shadow-md' : 'bg-white border-[#EFEBE0] hover:border-[#D7CCC8] hover:bg-[#FAFAFA] opacity-70 hover:opacity-100'}`}>
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.color}`}>{item.icon}</div>
+                                                <span className="text-[10px] font-bold text-[#8D6E63]">{item.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">地點 / 行程名稱</label>
+                                    <div className="relative">
+                                        <input type="text" placeholder="例如: 台北火車站" value={newActivityForm.location} onChange={(e) => setNewActivityForm({...newActivityForm, location: e.target.value})} className="w-full border border-[#E0E0E0] rounded-xl px-4 py-4 pl-12 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none font-bold text-[#5D4037] text-lg placeholder:font-normal placeholder:text-gray-400" />
+                                        <MapPin size={20} className="absolute left-4 top-4.5 text-[#CFB997]" />
+                                    </div>
+                                </div>
+                                
+                                {/* 新增費用欄位 */}
+                                <div>
+                                    <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">門票 / 費用 (選填)</label>
+                                    <div className="relative">
+                                        <input 
+                                            type="number" 
+                                            placeholder="0 (若不需門票則免填)" 
+                                            value={newActivityForm.cost} 
+                                            onChange={(e) => setNewActivityForm({...newActivityForm, cost: e.target.value})} 
+                                            className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 pl-12 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none text-[#5D4037]" 
+                                        />
+                                        <Banknote size={20} className="absolute left-4 top-3.5 text-[#CFB997]" />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">備註</label>
+                                    <textarea placeholder="例如: 北車大廳集合，記得買台鐵便當..." rows="2" value={newActivityForm.note} onChange={(e) => setNewActivityForm({...newActivityForm, note: e.target.value})} className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none resize-none text-sm" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 border-t border-[#FAFAFA] bg-white sticky bottom-0 z-10">
+                            <button onClick={handleAddActivity} className="w-full bg-[#CFB997] text-white py-4 rounded-xl font-bold hover:bg-[#BCAAA4] transition-all shadow-md hover:shadow-lg flex justify-center items-center gap-2 text-lg active:scale-95">
+                                <Plus size={24} /> 加入行程
+                            </button>
+                        </div>
+                    </div>
+                    </div>
+                )}
+
+                {/* --- Transport Edit Modal --- */}
+                {showTransportModal && (
+                    <div className="fixed inset-0 bg-[#5D4037]/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 animate-in fade-in zoom-in duration-200">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-[#5D4037]">點到點交通</h3>
+                            <button onClick={() => setShowTransportModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-3 gap-2">
+                                {TRANSPORT_OPTIONS.map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        onClick={() => setTransportForm({...transportForm, type: opt.id})}
+                                        className={`
+                                            flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1 transition-all active:scale-95
+                                            ${transportForm.type === opt.id 
+                                                ? 'bg-[#5D4037] text-white border-[#5D4037]' 
+                                                : 'bg-white text-[#8D6E63] border-[#EFEBE0] hover:bg-[#F5F0E6]'}
+                                        `}
+                                    >
+                                        {opt.icon}
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold text-[#8D6E63] mb-1 flex items-center gap-1">
+                                        <Timer size={12} /> 預估時間
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="如: 30分"
+                                        value={transportForm.duration}
+                                        onChange={(e) => setTransportForm({...transportForm, duration: e.target.value})}
+                                        className="w-full border border-[#E0E0E0] rounded-lg p-2 bg-[#FAFAFA] focus:outline-none focus:border-[#CFB997]"
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label className={`text-xs font-bold text-[#8D6E63] mb-1 flex items-center gap-1 ${!getTransportOption(transportForm.type).needCost && 'opacity-30'}`}>
+                                        <Banknote size={12} /> 票價/車資
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        placeholder="0"
+                                        value={transportForm.cost}
+                                        onChange={(e) => setTransportForm({...transportForm, cost: e.target.value})}
+                                        disabled={!getTransportOption(transportForm.type).needCost}
+                                        className={`w-full border border-[#E0E0E0] rounded-lg p-2 bg-[#FAFAFA] focus:outline-none focus:border-[#CFB997] ${!getTransportOption(transportForm.type).needCost && 'bg-gray-100 cursor-not-allowed opacity-50'}`}
+                                    />
+                                </div>
+                            </div>
+                            
+                            {!getTransportOption(transportForm.type).needCost && (
+                                <p className="text-xs text-[#A1887F] text-center bg-[#F5F0E6] py-1 rounded">
+                                    * 選擇 {getTransportOption(transportForm.type).label}，系統將自動忽略費用
+                                </p>
+                            )}
+
+                            <button 
+                                onClick={saveTransport}
+                                className="w-full bg-[#CFB997] text-white py-2.5 rounded-xl font-bold hover:bg-[#BCAAA4] mt-2 active:scale-95 transition-transform"
+                            >
+                                儲存設定
+                            </button>
+                        </div>
+                    </div>
+                    </div>
+                )}
+
+                {/* --- Settings Modal --- */}
+                {showSettingsModal && (
+                    <div className="fixed inset-0 bg-[#5D4037]/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200 border border-[#EFEBE0]">
+                            <div className="flex justify-between items-center mb-6 border-b border-[#FAFAFA] pb-4">
+                                <h3 className="text-xl font-bold text-[#5D4037]">旅程設定</h3>
+                                <button onClick={() => setShowSettingsModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors bg-[#FAFAFA] p-2 rounded-full hover:bg-[#F5F0E6]">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">旅程標題</label>
+                                    <input 
+                                        type="text" 
+                                        value={settingsForm.title}
+                                        onChange={(e) => setSettingsForm({...settingsForm, title: e.target.value})}
+                                        className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none text-[#5D4037] font-bold"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">目的地</label>
+                                    <input 
+                                        type="text" 
+                                        value={settingsForm.destination}
+                                        onChange={(e) => setSettingsForm({...settingsForm, destination: e.target.value})}
+                                        className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none text-[#5D4037]"
+                                    />
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">出發日期</label>
+                                        <input 
+                                            type="date" 
+                                            value={settingsForm.startDate}
+                                            onChange={(e) => setSettingsForm({...settingsForm, startDate: e.target.value})}
+                                            className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none text-[#5D4037]"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-[#8D6E63] uppercase tracking-wide mb-2">返家日期</label>
+                                        <input 
+                                            type="date" 
+                                            value={settingsForm.endDate}
+                                            onChange={(e) => setSettingsForm({...settingsForm, endDate: e.target.value})}
+                                            className="w-full border border-[#E0E0E0] rounded-xl px-4 py-3 bg-[#FAFAFA] focus:ring-2 focus:ring-[#CFB997] outline-none text-[#5D4037]"
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div className="bg-[#FFF8E1] p-3 rounded-lg text-xs text-[#8D6E63] leading-relaxed">
+                                    <span className="font-bold block mb-1">💡 小提示：</span>
+                                    修改日期後，系統會自動幫您增減天數，並重新計算每天的日期標籤喔！
+                                </div>
+
+                                <button 
+                                    onClick={saveSettings}
+                                    className="w-full bg-[#CFB997] text-white py-3 rounded-xl font-bold hover:bg-[#BCAAA4] transition-all shadow-md mt-4 active:scale-95"
+                                >
+                                    儲存並更新行程表
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 </div>
-            </div>
-        </div>
-      )}
+            );
+        };
 
-    </div>
-  );
-};
-
-export default TravelPlanner;
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<TravelPlanner />);
+    </script>
+</body>
+</html>
