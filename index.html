@@ -48,7 +48,7 @@
             scrollbar-width: none;
         }
 
-        /* 背景點點裝飾 */
+        /* 背景點點裝飾 - 定義樣式但不直接套用到主容器，改由內部 div 控制透明度 */
         .bg-dots-pattern {
             background-image: radial-gradient(#5D4037 1px, transparent 1px);
             background-size: 24px 24px;
@@ -702,7 +702,9 @@
 
                 {/* --- Main Content --- */}
                 <main className="flex-1 overflow-y-auto relative bg-dots-pattern">
-                    <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#5D4037 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
+                    <!-- 移除 bg-dots-pattern 類別，只保留背景色 -->
+                    <!-- 這裡的 div 控制背景點點透明度，降低為 0.02 -->
+                    <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#5D4037 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
 
                     <div 
                         key={activeDayId} 
