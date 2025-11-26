@@ -8,15 +8,19 @@
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 引入 React 和 ReactDOM (使用 cdnjs Production 版本，更穩定) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    
-    <!-- 引入 Babel -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-    
-    <!-- 引入 Lucide React 圖標庫 (使用較穩定的版本) -->
-    <script src="https://unpkg.com/lucide-react@0.294.0/dist/umd/lucide-react.js"></script>
+    <!-- 引入 Babel (用於解析 JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- 定義模組路徑 (Import Map) -->
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+        }
+    }
+    </script>
 
     <style>
         /* 自定義滾動條樣式 */
@@ -54,34 +58,20 @@
 <body class="bg-[#FDFBF7] text-[#5D4037] font-sans selection:bg-[#CFB997] selection:text-white">
     <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useRef, useEffect } = React;
+    <!-- 使用 data-type="module" 讓 Babel 處理 ES Module -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useRef, useEffect } from 'react';
+        import { createRoot } from 'react-dom/client';
         
-        // 安全載入 Lucide
-        const lucide = window.lucideReact;
-
-        if (!lucide) {
-            console.error("Lucide React library failed to load.");
-            document.getElementById('root').innerHTML = `
-                <div class="min-h-screen flex items-center justify-center p-10 text-[#5D4037] bg-[#FDFBF7]">
-                    <div class="text-center">
-                        <h2 class="text-2xl font-bold mb-2">圖標庫載入失敗</h2>
-                        <p>請檢查您的網路連線，或稍後重新整理頁面。</p>
-                    </div>
-                </div>
-            `;
-            throw new Error("Lucide load failed");
-        }
-
-        // 從全局 lucideReact 對象中解構圖標
-        const { 
+        // 直接從模組導入圖標，避免全域變數問題
+        import { 
             MapPin, Utensils, Camera, Train, Bed, Plus, Trash2, Edit3, Save, 
             Calendar, Coffee, X, Share2, ExternalLink, ShoppingBag, Music, 
             Sun, Moon, Star, Flag, Plane, Ticket, Gift, Heart, Smile, 
             Umbrella, Anchor, Bike, Zap, BookOpen, Footprints, Car, Bus, 
             Timer, Banknote, Settings, Clock, Navigation,
-            Map: MapIcon // 重命名 Map 圖標
-        } = lucide;
+            Map as MapIcon // 重命名 Map 圖標避免衝突
+        } from 'lucide-react';
 
         // --- 全新設計：24小時制時間選擇器 ---
         const CustomTimePicker = ({ value, onChange }) => {
@@ -1236,7 +1226,7 @@
             );
         };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
+        const root = createRoot(document.getElementById('root'));
         root.render(<TravelPlanner />);
     </script>
 </body>
